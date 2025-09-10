@@ -9,7 +9,8 @@ import {
   Wifi, Smartphone, Globe, CheckCircle, MessageCircle,
   Moon, Sun, AlertTriangle, Phone, Mail, MapPin,
   Facebook, Instagram, Twitter, Send, DollarSign,
-  Sparkles, Gift, Crown, Rocket, Timer, CreditCard
+  Sparkles, Gift, Crown, Rocket, Timer, CreditCard,
+  WifiIcon, Percent, TrendingDown
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
@@ -47,7 +48,6 @@ export default function StorePage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [animatedStats, setAnimatedStats] = useState({ customers: 0, orders: 0, rating: 0 });
   const [customColors, setCustomColors] = useState({
     primary: '#1976d2',
     secondary: '#dc004e'
@@ -84,33 +84,6 @@ export default function StorePage() {
   useEffect(() => {
     fetchStoreData();
   }, [params.storeSlug]);
-
-  // Animate stats on load
-  useEffect(() => {
-    if (store?.metrics) {
-      const duration = 2000;
-      const steps = 60;
-      const interval = duration / steps;
-      
-      let currentStep = 0;
-      const timer = setInterval(() => {
-        currentStep++;
-        const progress = currentStep / steps;
-        
-        setAnimatedStats({
-          customers: Math.floor((store.metrics.totalCustomers || 100) * progress),
-          orders: Math.floor((store.metrics.totalOrders || 50) * progress),
-          rating: ((store.metrics.rating || 4.5) * progress).toFixed(1)
-        });
-        
-        if (currentStep >= steps) {
-          clearInterval(timer);
-        }
-      }, interval);
-      
-      return () => clearInterval(timer);
-    }
-  }, [store]);
 
   const fetchStoreData = async () => {
     try {
@@ -153,19 +126,6 @@ export default function StorePage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to get storeSlug from localStorage (can be used elsewhere in your app)
-  const getStoredStoreSlug = () => {
-    if (typeof window !== 'undefined') {
-      try {
-        return localStorage.getItem('lastVisitedStoreSlug');
-      } catch (error) {
-        console.error('Error getting storeSlug from localStorage:', error);
-        return null;
-      }
-    }
-    return null;
   };
 
   const toggleDarkMode = () => {
@@ -228,15 +188,13 @@ export default function StorePage() {
     <div className={`${isDarkMode ? 'dark bg-gray-900' : 'bg-gradient-to-b from-blue-50 via-white to-purple-50'} min-h-screen transition-all duration-300`}>
       {/* Animated Background Shapes with custom colors */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-30 animate-blob"
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-20 animate-blob"
              style={{ backgroundColor: customColors.primary }}></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-30 animate-blob animation-delay-2000"
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-20 animate-blob animation-delay-2000"
              style={{ backgroundColor: customColors.secondary }}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-30 animate-blob animation-delay-4000"
-             style={{ backgroundColor: adjustColor(customColors.primary, 40) }}></div>
       </div>
 
-      <div className="relative z-10 space-y-8 md:space-y-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-6">
+      <div className="relative z-10 space-y-6 md:space-y-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-4">
         {/* Dark Mode Toggle - Fixed Position */}
         <button 
           onClick={toggleDarkMode}
@@ -249,78 +207,63 @@ export default function StorePage() {
           }
         </button>
 
-        {/* Hero Section with custom colors */}
+        {/* COMPACT Hero Section with custom colors */}
         <section 
-          className="relative rounded-3xl overflow-hidden text-white shadow-2xl"
+          className="relative rounded-2xl overflow-hidden text-white shadow-xl"
           style={{
             background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
           }}
         >
-          {/* Animated Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}></div>
-          </div>
-          
-          <div className="relative z-10 px-6 sm:px-8 lg:px-12 py-12 sm:py-16 lg:py-20">
-            <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+          <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+            <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-8">
+              {/* Left Content */}
               <div className="flex-1 text-center lg:text-left">
-                {/* Store Logo and Name */}
-                <div className="flex flex-col sm:flex-row items-center lg:items-start gap-4 mb-6">
+                {/* Store Header */}
+                <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 mb-4">
                   {store?.storeLogo && (
                     <img 
                       src={store.storeLogo} 
                       alt={store.storeName} 
-                      className="h-20 w-20 rounded-2xl border-4 border-white/30 shadow-xl animate-float"
+                      className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl border-2 border-white/30 shadow-lg"
                     />
                   )}
                   <div>
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 animate-slide-in">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold flex items-center gap-2">
                       {store?.storeName}
+                      {store?.verification?.isVerified && (
+                        <Shield className="w-5 h-5 text-green-400" />
+                      )}
                     </h1>
-                    {store?.verification?.isVerified && (
-                      <div className="inline-flex items-center bg-green-500/20 backdrop-blur px-3 py-1 rounded-full">
-                        <Shield className="w-4 h-4 mr-2" />
-                        <span className="text-sm font-medium">Verified Store</span>
-                      </div>
-                    )}
+                    <span className={`inline-flex items-center mt-1 px-2 py-1 rounded-full text-xs font-bold ${
+                      isStoreOpen() 
+                        ? 'bg-green-500/20 text-green-300' 
+                        : 'bg-red-500/20 text-red-300'
+                    }`}>
+                      {isStoreOpen() ? '🟢 Open Now' : '🔴 Closed'}
+                    </span>
                   </div>
                 </div>
                 
-                <p className="text-lg sm:text-xl lg:text-2xl mb-8 text-white/90 animate-fade-in">
-                  {store?.storeDescription || 'Your trusted source for affordable data bundles'}
-                </p>
-                
-                {/* Store Status and Rating */}
-                <div className="flex flex-wrap justify-center lg:justify-start items-center gap-3 mb-8">
-                  <span className={`px-4 py-2 rounded-full font-bold text-sm sm:text-base animate-pulse ${
-                    isStoreOpen() 
-                      ? 'bg-green-500 text-white shadow-lg shadow-green-500/50' 
-                      : 'bg-red-500 text-white shadow-lg shadow-red-500/50'
-                  }`}>
-                    {isStoreOpen() ? '🟢 Store Open' : '🔴 Store Closed'}
-                  </span>
-                  
-                  {store?.metrics?.rating > 0 && (
-                    <div className="flex items-center bg-white/20 backdrop-blur px-4 py-2 rounded-full">
-                      <Star className="w-5 h-5 text-yellow-400 mr-1 fill-current" />
-                      <span className="font-bold">{animatedStats.rating}</span>
-                      <span className="ml-1 text-white/80 text-sm">({store.metrics.totalReviews} reviews)</span>
-                    </div>
-                  )}
+                {/* Main Message - SUPER CLEAR */}
+                <div className="mb-6">
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 text-white">
+                    Buy Affordable Data Bundles
+                  </h2>
+                  <p className="text-white/90 text-base sm:text-lg">
+                    30-60min delivery • Best prices • All networks
+                  </p>
                 </div>
                 
-                {/* CTA Buttons with custom colors */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                {/* CTA Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                   <Link 
                     href={`/shop/${params.storeSlug}/products`}
-                    className="group inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-white text-gray-900 font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+                    className="group inline-flex items-center justify-center px-6 py-3 bg-white text-gray-900 font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                     style={{ color: customColors.primary }}
                   >
-                    <ShoppingBag className="w-5 h-5 mr-2 group-hover:animate-bounce" />
+                    <ShoppingBag className="w-5 h-5 mr-2" />
                     Shop Now
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
                   
                   {store?.whatsappSettings?.communityLink && (
@@ -328,43 +271,64 @@ export default function StorePage() {
                       href={store.whatsappSettings.communityLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+                      className="group inline-flex items-center justify-center px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                     >
-                      <MessageCircle className="w-5 h-5 mr-2 group-hover:animate-bounce" />
+                      <MessageCircle className="w-5 h-5 mr-2" />
                       Join Community
                     </a>
                   )}
                 </div>
               </div>
               
-              {/* Hero Image/Graphic */}
-              <div className="flex-1 flex justify-center lg:justify-end">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full blur-3xl opacity-30 animate-pulse"
-                       style={{ background: `linear-gradient(to right, ${customColors.primary}, ${customColors.secondary})` }}></div>
-                  <div className="relative grid grid-cols-2 gap-4 p-4">
-                    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                      <Zap className="w-8 h-8 mb-2 text-yellow-300" />
-                      <p className="font-bold text-2xl">{animatedStats.orders}+</p>
-                      <p className="text-sm opacity-90">Orders Delivered</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                      <Users className="w-8 h-8 mb-2 text-green-300" />
-                      <p className="font-bold text-2xl">{animatedStats.customers}+</p>
-                      <p className="text-sm opacity-90">Happy Customers</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                      <Timer className="w-8 h-8 mb-2 text-blue-300" />
-                      <p className="font-bold text-2xl">10-60</p>
-                      <p className="text-sm opacity-90">Min Delivery</p>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur rounded-2xl p-4 transform hover:scale-105 transition-transform">
-                      <Shield className="w-8 h-8 mb-2 text-purple-300" />
-                      <p className="font-bold text-2xl">100%</p>
-                      <p className="text-sm opacity-90">Secure</p>
-                    </div>
+              {/* Right Side - Quick Benefits */}
+              <div className="hidden lg:flex flex-col gap-3 bg-white/10 backdrop-blur rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Zap className="w-5 h-5 text-yellow-300" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Fast Delivery</p>
+                    <p className="text-xs opacity-80">10-60 minutes</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <TrendingDown className="w-5 h-5 text-green-300" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Best Prices</p>
+                    <p className="text-xs opacity-80">Save up to 40%</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg">
+                    <Shield className="w-5 h-5 text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">100% Secure</p>
+                    <p className="text-xs opacity-80">Safe payments</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile Benefits Bar */}
+            <div className="lg:hidden mt-4 flex justify-around text-center">
+              <div className="flex flex-col items-center">
+                <Zap className="w-5 h-5 text-yellow-300 mb-1" />
+                <span className="text-xs">Fast</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <TrendingDown className="w-5 h-5 text-green-300 mb-1" />
+                <span className="text-xs">Cheap</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <Shield className="w-5 h-5 text-blue-300 mb-1" />
+                <span className="text-xs">Secure</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <WifiIcon className="w-5 h-5 text-purple-300 mb-1" />
+                <span className="text-xs">All Networks</span>
               </div>
             </div>
           </div>
@@ -372,12 +336,12 @@ export default function StorePage() {
 
         {/* Shop by Network - Enhanced Cards */}
         <section>
-          <div className="text-center mb-8">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-3">Choose Your Network</h2>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">Select your preferred network for the best deals</p>
+          <div className="text-center mb-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Choose Your Network</h2>
+            <p className="text-gray-600 dark:text-gray-400">Select your network and start saving</p>
           </div>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
               { network: 'YELLO', name: 'MTN', logo: <MTNLogo />, color: 'from-yellow-400 to-yellow-600' },
               { network: 'TELECEL', name: 'Telecel', logo: <TelecelLogo />, color: 'from-red-400 to-red-600' },
@@ -392,24 +356,24 @@ export default function StorePage() {
                 <Link
                   key={network}
                   href={`/shop/${params.storeSlug}/products?network=${network}`}
-                  className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                  className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                 >
-                  <div className={`bg-gradient-to-br ${color} p-6 sm:p-8 h-40 sm:h-48 flex flex-col justify-between`}>
+                  <div className={`bg-gradient-to-br ${color} p-4 sm:p-6 h-32 sm:h-36 flex flex-col justify-between`}>
                     <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-30 transition-opacity">
-                      <Wifi className="w-20 h-20 text-white" />
+                      <Wifi className="w-16 h-16 text-white" />
                     </div>
                     
                     <div className="relative z-10">
-                      <div className="mb-3">{logo}</div>
-                      <h3 className="text-white font-bold text-xl sm:text-2xl mb-1">{name}</h3>
-                      <p className="text-white/90 text-sm">
+                      <div className="mb-2 transform scale-75 sm:scale-100 origin-left">{logo}</div>
+                      <h3 className="text-white font-bold text-lg sm:text-xl">{name}</h3>
+                      <p className="text-white/90 text-xs sm:text-sm">
                         {networkProducts.length} bundles
                       </p>
                     </div>
                     
                     <div className="flex items-center text-white font-medium">
-                      <span className="text-sm">Shop Now</span>
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-2 transition-transform" />
+                      <span className="text-xs sm:text-sm">Shop Now</span>
+                      <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-2 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
                 </Link>
@@ -421,27 +385,27 @@ export default function StorePage() {
         {/* Featured Products - Enhanced with custom colors */}
         {featuredProducts.length > 0 && (
           <section>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-8">
-              <div className="text-center sm:text-left mb-4 sm:mb-0">
-                <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                  <Sparkles className="inline w-8 h-8 mr-2 text-yellow-500" />
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+              <div className="text-center sm:text-left mb-3 sm:mb-0">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                  <Sparkles className="inline w-6 h-6 mr-2 text-yellow-500" />
                   Hot Deals
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400">Limited time offers you can't miss!</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Limited time offers!</p>
               </div>
               <Link 
                 href={`/shop/${params.storeSlug}/products`}
-                className="inline-flex items-center px-6 py-3 text-white font-bold rounded-full hover:shadow-lg transition-all duration-300 hover:scale-105"
+                className="inline-flex items-center px-5 py-2 text-white font-bold rounded-full hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm"
                 style={{
                   background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
                 }}
               >
                 View All
-                <ChevronRight className="w-5 h-5 ml-1" />
+                <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {featuredProducts.map((product) => (
                 <ProductCard 
                   key={product._id} 
@@ -456,34 +420,29 @@ export default function StorePage() {
         )}
 
         {/* Final CTA with custom colors */}
-        <section className="text-center py-12 px-4">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+        <section className="text-center py-8 px-4">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
             Ready to Save on Data? 🚀
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-            Join {animatedStats.customers}+ happy customers enjoying affordable bundles
+          <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
+            Join thousands of customers enjoying affordable bundles
           </p>
           <Link
             href={`/shop/${params.storeSlug}/products`}
-            className="inline-flex items-center justify-center px-10 py-5 text-white font-bold text-lg rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300"
+            className="inline-flex items-center justify-center px-8 py-4 text-white font-bold text-lg rounded-full shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300"
             style={{
               background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
             }}
           >
-            <Rocket className="w-6 h-6 mr-3 animate-bounce" />
+            <Rocket className="w-5 h-5 mr-2 animate-bounce" />
             Start Shopping Now
-            <ArrowRight className="w-6 h-6 ml-3" />
+            <ArrowRight className="w-5 h-5 ml-2" />
           </Link>
         </section>
       </div>
 
-      {/* Add CSS for animations and custom properties */}
+      {/* Add CSS for animations */}
       <style jsx>{`
-        :root {
-          --primary-color: ${customColors.primary};
-          --secondary-color: ${customColors.secondary};
-        }
-        
         @keyframes blob {
           0% {
             transform: translate(0px, 0px) scale(1);
@@ -503,47 +462,6 @@ export default function StorePage() {
         }
         .animation-delay-2000 {
           animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        @keyframes float {
-          0% {
-            transform: translatey(0px);
-          }
-          50% {
-            transform: translatey(-20px);
-          }
-          100% {
-            transform: translatey(0px);
-          }
-        }
-        .animate-float {
-          animation: float 4s ease-in-out infinite;
-        }
-        @keyframes slide-in {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.5s ease-out;
-        }
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 1s ease-out;
         }
       `}</style>
     </div>
@@ -569,13 +487,13 @@ function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
   
   return (
     <div 
-      className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105 overflow-hidden"
+      className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105 overflow-hidden"
       onClick={() => router.push(`/shop/${storeSlug}/products`)}
     >
       {/* Sale Badge */}
       {product.isOnSale && (
-        <div className="absolute top-3 left-3 z-10">
-          <span className="inline-flex items-center px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
+        <div className="absolute top-2 left-2 z-10">
+          <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
             <Sparkles className="w-3 h-3 mr-1" />
             SALE
           </span>
@@ -584,68 +502,68 @@ function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
       
       {/* Featured Star */}
       {product.featured && (
-        <div className="absolute top-3 right-3 z-10">
-          <Star className="w-6 h-6 text-yellow-500 fill-current drop-shadow-lg" />
+        <div className="absolute top-2 right-2 z-10">
+          <Star className="w-5 h-5 text-yellow-500 fill-current drop-shadow-lg" />
         </div>
       )}
       
       {/* Network Banner */}
-      <div className={`h-2 bg-gradient-to-r ${getNetworkColor(product.network)}`}></div>
+      <div className={`h-1 bg-gradient-to-r ${getNetworkColor(product.network)}`}></div>
       
-      <div className="p-6">
+      <div className="p-4">
         {/* Network & Capacity */}
-        <div className="mb-4">
-          <span className={`inline-block px-3 py-1 bg-gradient-to-r ${getNetworkColor(product.network)} text-white text-xs font-bold rounded-full mb-3`}>
+        <div className="mb-3">
+          <span className={`inline-block px-2 py-1 bg-gradient-to-r ${getNetworkColor(product.network)} text-white text-xs font-bold rounded-full mb-2`}>
             {product.network === 'YELLO' ? 'MTN' : product.network === 'AT_PREMIUM' ? 'AirtelTigo' : product.network}
           </span>
           
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
             {product.capacity}GB
           </h3>
           
           {product.displayName && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">{product.displayName}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">{product.displayName}</p>
           )}
         </div>
         
         {/* Price */}
-        <div className="mb-4">
+        <div className="mb-3">
           {product.isOnSale && product.salePrice ? (
             <div>
-              <span className="text-3xl font-bold text-gray-900 dark:text-white">
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(product.salePrice)}
               </span>
-              <span className="text-sm text-gray-500 line-through ml-2">
+              <span className="text-xs text-gray-500 line-through ml-2">
                 {formatCurrency(product.sellingPrice)}
               </span>
               <div className="mt-1">
-                <span className="inline-block px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
                   Save {formatCurrency(product.sellingPrice - product.salePrice)}
                 </span>
               </div>
             </div>
           ) : (
-            <span className="text-3xl font-bold text-gray-900 dark:text-white">
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
               {formatCurrency(product.sellingPrice)}
             </span>
           )}
         </div>
         
         {/* Features */}
-        <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3">
           <div className="flex items-center">
-            <Clock className="w-4 h-4 mr-1" />
-            <span>30 days</span>
+            <Clock className="w-3 h-3 mr-1" />
+            <span>90 days expiring</span>
           </div>
           <div className="flex items-center">
-            <Zap className="w-4 h-4 mr-1" />
-            <span>10-60min</span>
+            <Zap className="w-3 h-3 mr-1" />
+            <span>Fast</span>
           </div>
         </div>
         
-        {/* Action Button with custom color */}
+        {/* Action Button */}
         <button 
-          className="w-full py-3 text-white font-bold rounded-xl hover:shadow-lg transition-all duration-300 group-hover:scale-105"
+          className="w-full py-2 text-white font-bold rounded-lg hover:shadow-lg transition-all duration-300 text-sm"
           style={{
             background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
           }}
@@ -655,8 +573,8 @@ function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
         
         {/* Out of Stock Overlay */}
         {product.inStock === false && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-2xl">
-            <span className="bg-red-500 text-white px-4 py-2 rounded-full font-bold">Out of Stock</span>
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
+            <span className="bg-red-500 text-white px-3 py-1 rounded-full font-bold text-sm">Out of Stock</span>
           </div>
         )}
       </div>
