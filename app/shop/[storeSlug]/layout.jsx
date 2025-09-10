@@ -128,10 +128,10 @@ export default function StoreLayout({ children }) {
     if (!store.autoCloseOutsideHours) return true;
     
     const now = new Date();
-    const dayName = now.toLocaleLowerCase('en-US', { weekday: 'long' });
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const currentTime = now.toTimeString().slice(0, 5);
     
-    const todayHours = store.businessHours[dayName];
+    const todayHours = store.businessHours?.[dayName];
     if (!todayHours || !todayHours.isOpen) return false;
     
     return currentTime >= todayHours.open && currentTime <= todayHours.close;

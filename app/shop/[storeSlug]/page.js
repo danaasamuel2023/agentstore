@@ -150,7 +150,7 @@ export default function StorePage() {
     if (!store.autoCloseOutsideHours) return true;
     
     const now = new Date();
-    const dayName = now.toLocaleLowerCase('en-US', { weekday: 'long' });
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const currentTime = now.toTimeString().slice(0, 5);
     
     const todayHours = store.businessHours?.[dayName];
