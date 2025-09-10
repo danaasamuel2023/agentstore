@@ -12,7 +12,7 @@ import {
   ShieldCheck, BarChart3, Rocket, Sparkles
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api/v1';
+const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 const AboutPage = () => { // Changed to arrow function with const
   const params = useParams();
