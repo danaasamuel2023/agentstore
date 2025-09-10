@@ -7,7 +7,7 @@ import {
   ChevronDown, Package, Zap, Shield, Moon, Sun
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api/v1';
+const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 // Toast Notification Component
 const Toast = ({ message, type, onClose }) => {
