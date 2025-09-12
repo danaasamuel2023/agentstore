@@ -502,7 +502,7 @@ export default function ProductsPage() {
             <div className="flex items-center gap-4">
               <div className="flex items-center">
                 <Zap className="w-4 h-4 mr-1 text-yellow-500" />
-              Fast Delivery (10min - 1hr)
+                Fast Delivery (10min - 1hr)
               </div>
               <div className="flex items-center">
                 <Shield className="w-4 h-4 mr-1 text-green-500" />
@@ -591,7 +591,7 @@ export default function ProductsPage() {
                       <p className="text-sm font-bold">Price</p>
                     </div>
                     <div className="flex flex-col items-center justify-center p-3 text-center">
-                      <p className="text-lg">30 Days</p>
+                      <p className="text-lg">Non Expiry</p>
                       <p className="text-sm font-bold">Validity</p>
                     </div>
                   </div>
