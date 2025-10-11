@@ -6,7 +6,8 @@ import Link from 'next/link';
 import {
   Store, ShoppingCart, Phone, MessageCircle, Clock, MapPin,
   Facebook, Instagram, Twitter, Star, Menu, X, Package,
-  ChevronRight, Mail, Globe, Award, Users, Shield, Moon, Sun
+  ChevronRight, Mail, Globe, Award, Users, Shield, Moon, Sun,
+  Search  // Add Search icon
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
@@ -137,9 +138,11 @@ export default function StoreLayout({ children }) {
     return currentTime >= todayHours.open && currentTime <= todayHours.close;
   };
 
+  // Updated navItems with Track Order link
   const navItems = [
     { href: `/shop/${params.storeSlug}`, label: 'Home', icon: Store },
     { href: `/shop/${params.storeSlug}/products`, label: 'Products', icon: Package },
+    { href: `/shop/${params.storeSlug}/orders/search`, label: 'Track Order', icon: Search }, // Added this line
     { href: `/shop/${params.storeSlug}/about`, label: 'About', icon: Users },
     // { href: `/shop/${params.storeSlug}/contact`, label: 'Contact', icon: Phone }
   ];
