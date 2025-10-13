@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   Filter, Search, ShoppingCart, Star, Info, X,
-  ChevronDown, Package, Zap, Shield, Moon, Sun
+  ChevronDown, Package, Zap, Shield, Moon, Sun, AlertCircle, XCircle
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
@@ -340,7 +340,7 @@ export default function ProductsPage() {
         showToast(`${product.capacity}GB bundle purchase initiated successfully!`, 'success');
         window.location.href = data.data.authorizationUrl;
       } else {
-        showToast('Failed to initialize payment', 'error');
+        showToast(data.message || 'Failed to initialize payment', 'error');
       }
     } catch (error) {
       showToast('Error processing purchase: ' + error.message, 'error');
@@ -365,28 +365,40 @@ export default function ProductsPage() {
         card: 'bg-yellow-400',
         expanded: isDarkMode ? 'bg-yellow-500' : 'bg-yellow-400',
         button: 'bg-green-600 hover:bg-green-700',
-        badge: 'bg-yellow-100 text-yellow-800'
+        badge: 'bg-yellow-100 text-yellow-800',
+        outOfStockBg: 'bg-yellow-500',
+        outOfStockText: 'text-yellow-900',
+        outOfStockBorder: 'border-yellow-600'
       };
     } else if (network === 'TELECEL') {
       return {
         card: 'bg-gradient-to-tr from-red-700 to-red-500',
         expanded: 'bg-gradient-to-br from-red-600 to-red-700',
         button: 'bg-red-900 hover:bg-red-800',
-        badge: 'bg-red-100 text-red-800'
+        badge: 'bg-red-100 text-red-800',
+        outOfStockBg: 'bg-red-600',
+        outOfStockText: 'text-white',
+        outOfStockBorder: 'border-red-400'
       };
     } else if (network === 'AT_PREMIUM') {
       return {
         card: 'bg-gradient-to-tr from-purple-700 to-purple-500',
         expanded: 'bg-gradient-to-br from-purple-600 to-purple-700',
         button: 'bg-purple-900 hover:bg-purple-800',
-        badge: 'bg-purple-100 text-purple-800'
+        badge: 'bg-purple-100 text-purple-800',
+        outOfStockBg: 'bg-purple-600',
+        outOfStockText: 'text-white',
+        outOfStockBorder: 'border-purple-400'
       };
     }
     return {
       card: 'bg-gradient-to-tr from-blue-700 to-blue-500',
       expanded: 'bg-gradient-to-br from-blue-600 to-blue-700',
       button: 'bg-blue-900 hover:bg-blue-800',
-      badge: 'bg-blue-100 text-blue-800'
+      badge: 'bg-blue-100 text-blue-800',
+      outOfStockBg: 'bg-blue-600',
+      outOfStockText: 'text-white',
+      outOfStockBorder: 'border-blue-400'
     };
   };
 
@@ -424,17 +436,6 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowServiceModal(true)}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
-                isDarkMode 
-                  ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
-                  : 'bg-yellow-500 text-white hover:bg-yellow-600'
-              }`}
-            >
-              <Info className="w-5 h-5" />
-              <span className="hidden sm:inline">Service Info</span>
-            </button>
             <button 
               onClick={toggleDarkMode}
               className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-yellow-400' : 'bg-gray-200 text-gray-800'}`}
@@ -606,60 +607,97 @@ export default function ProductsPage() {
                   </div>
                 </div>
                 
+                {/* Expanded Section - OUT OF STOCK or PURCHASE FORM */}
                 {isSelected && (
-                  <div className={`${colors.expanded} p-4 rounded-b-lg shadow-md`}>
-                    {bundleMessages[index] && (
-                      <div className={`mb-3 p-3 rounded ${
-                        bundleMessages[index].type === 'success' 
-                          ? isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800' 
-                          : isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {bundleMessages[index].text}
+                  <div className={`${colors.expanded} p-6 rounded-b-lg shadow-md`}>
+                    {!product.inStock ? (
+                      // OUT OF STOCK DESIGN
+                      <div className={`${colors.outOfStockBg} rounded-lg p-6 border-2 ${colors.outOfStockBorder}`}>
+                        <div className="flex flex-col items-center justify-center space-y-4">
+                          {/* Icon */}
+                          <div className={`${colors.outOfStockText} bg-white/20 rounded-full p-4`}>
+                            <XCircle className="w-16 h-16" />
+                          </div>
+                          
+                          {/* Text */}
+                          <div className="text-center">
+                            <h3 className={`text-2xl font-bold ${colors.outOfStockText} mb-2`}>
+                              Currently Unavailable
+                            </h3>
+                            <p className={`text-sm ${colors.outOfStockText} opacity-90 mb-4`}>
+                              This {product.capacity}GB bundle is temporarily out of stock.
+                            </p>
+                            <p className={`text-xs ${colors.outOfStockText} opacity-80`}>
+                              Please check back later or choose another bundle.
+                            </p>
+                          </div>
+                          
+                          {/* Decorative line */}
+                          <div className={`w-full h-1 ${colors.outOfStockText} opacity-20 rounded-full`}></div>
+                          
+                          {/* Alternative suggestion */}
+                          <div className={`${colors.outOfStockText} opacity-90 text-center text-sm`}>
+                            <p className="font-semibold mb-1">Need data urgently?</p>
+                            <p>Try our other available bundles above</p>
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                      // PURCHASE FORM
+                      <>
+                        {bundleMessages[index] && (
+                          <div className={`mb-3 p-3 rounded ${
+                            bundleMessages[index].type === 'success' 
+                              ? isDarkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800' 
+                              : isDarkMode ? 'bg-red-800 text-red-200' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {bundleMessages[index].text}
+                          </div>
+                        )}
+                        
+                        <div className="mb-3">
+                          <label className="block text-xs font-medium text-white mb-1">
+                            Your Name
+                          </label>
+                          <input
+                            type="text"
+                            className={`w-full px-3 py-2 rounded ${
+                              product.network === 'YELLO' 
+                                ? 'bg-yellow-300 text-black placeholder-yellow-700 border border-yellow-500' 
+                                : 'bg-white/90 text-gray-900 placeholder-gray-400'
+                            } focus:outline-none focus:ring-2`}
+                            placeholder="Enter your name"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                          />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <label className="block text-xs font-medium text-white mb-1">
+                            Beneficiary Number
+                          </label>
+                          <input
+                            type="tel"
+                            className={`w-full px-3 py-2 rounded ${
+                              product.network === 'YELLO' 
+                                ? 'bg-yellow-300 text-black placeholder-yellow-700 border border-yellow-500' 
+                                : 'bg-white/90 text-gray-900 placeholder-gray-400'
+                            } focus:outline-none focus:ring-2`}
+                            placeholder={getPhoneNumberPlaceholder(product.network)}
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                          />
+                          <p className="text-xs text-white/80 mt-1">Data will be sent to this number</p>
+                        </div>
+                        
+                        <button
+                          onClick={() => handlePurchase(product, index)}
+                          className={`w-full px-4 py-2 ${colors.button} text-white rounded focus:outline-none focus:ring-2 transition-all duration-300`}
+                        >
+                          Purchase Now
+                        </button>
+                      </>
                     )}
-                    
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-white mb-1">
-                        Your Name
-                      </label>
-                      <input
-                        type="text"
-                        className={`w-full px-3 py-2 rounded ${
-                          product.network === 'YELLO' 
-                            ? 'bg-yellow-300 text-black placeholder-yellow-700 border border-yellow-500' 
-                            : 'bg-white/90 text-gray-900 placeholder-gray-400'
-                        } focus:outline-none focus:ring-2`}
-                        placeholder="Enter your name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-xs font-medium text-white mb-1">
-                        Beneficiary Number
-                      </label>
-                      <input
-                        type="tel"
-                        className={`w-full px-3 py-2 rounded ${
-                          product.network === 'YELLO' 
-                            ? 'bg-yellow-300 text-black placeholder-yellow-700 border border-yellow-500' 
-                            : 'bg-white/90 text-gray-900 placeholder-gray-400'
-                        } focus:outline-none focus:ring-2`}
-                        placeholder={getPhoneNumberPlaceholder(product.network)}
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                      />
-                      <p className="text-xs text-white/80 mt-1">Data will be sent to this number</p>
-                    </div>
-                    
-                    <button
-                      onClick={() => handlePurchase(product, index)}
-                      className={`w-full px-4 py-2 ${colors.button} text-white rounded focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300`}
-                      disabled={!product.inStock}
-                    >
-                      {!product.inStock ? 'Out of Stock' : 'Purchase Now'}
-                    </button>
                   </div>
                 )}
               </div>
