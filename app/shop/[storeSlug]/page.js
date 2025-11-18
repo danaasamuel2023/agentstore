@@ -1,4 +1,4 @@
-// app/shop/[storeSlug]/page.jsx - COMPLETE WITH SEO
+// app/shop/[storeSlug]/page.jsx - COMPLETE WITH PAYMENT INTEGRATION
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -10,7 +10,7 @@ import {
   Moon, Sun, AlertTriangle, Phone, Mail, MapPin,
   Facebook, Instagram, Twitter, Send, DollarSign,
   Sparkles, Gift, Crown, Rocket, Timer, CreditCard,
-  WifiIcon, Percent, TrendingDown
+  WifiIcon, Percent, TrendingDown, Loader2, X
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
@@ -43,13 +43,482 @@ const AirtelTigoLogo = () => (
   </svg>
 );
 
+// ===== PAYMENT MODAL COMPONENT =====
+function PaymentModal({ 
+  isOpen, 
+  onClose, 
+  product, 
+  storeSlug, 
+  storeName,
+  customColors 
+}) {
+  const [customerData, setCustomerData] = useState({
+    name: '',
+    email: '',
+    phoneNumber: '',
+    paymentMethod: 'auto'
+  });
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+  
+  const getNetworkName = (network) => {
+    if (network === 'YELLO') return 'MTN';
+    if (network === 'TELECEL') return 'Telecel';
+    return 'AirtelTigo';
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setCustomerData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setError('');
+  };
+  
+  const validateForm = () => {
+    if (!customerData.name.trim()) {
+      setError('Please enter your name');
+      return false;
+    }
+    if (!customerData.email.trim()) {
+      setError('Please enter your email');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    if (!customerData.phoneNumber.trim()) {
+      setError('Please enter your phone number');
+      return false;
+    }
+    
+    const cleanPhone = customerData.phoneNumber.replace(/\s/g, '');
+    const phoneRegex = /^0\d{9}$/;
+    if (!phoneRegex.test(cleanPhone)) {
+      setError('Phone number must be 10 digits starting with 0 (e.g., 0241234567)');
+      return false;
+    }
+    
+    return true;
+  };
+  
+  const initializePayment = async () => {
+    setError('');
+    
+    if (!validateForm()) return;
+    
+    setLoading(true);
+    
+    try {
+      const response = await fetch(
+        `${API_BASE}/agent-stores/stores/${storeSlug}/purchase/initialize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            productId: product._id,
+            phoneNumber: customerData.phoneNumber.replace(/\s/g, ''),
+            customerEmail: customerData.email,
+            customerName: customerData.name,
+            quantity: 1,
+            paymentMethod: customerData.paymentMethod,
+            callbackUrl: `${window.location.origin}/shop/${storeSlug}/payment/verify`,
+            isMainPlatform: false
+          })
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to initialize payment');
+      }
+      
+      if (data.status === 'success') {
+        // Store transaction details in localStorage for verification page
+        localStorage.setItem('lastTransaction', JSON.stringify({
+          transactionId: data.data.transactionId,
+          gateway: data.data.gateway,
+          amount: data.data.amount,
+          phoneNumber: data.data.data?.phoneNumber || customerData.phoneNumber,
+          productName: `${product.capacity}GB ${getNetworkName(product.network)}`
+        }));
+        
+        // Route to correct payment gateway
+        if (data.data.gateway === 'paystack') {
+          // Redirect to Paystack payment page
+          window.location.href = data.data.data.authorizationUrl;
+        } else if (data.data.gateway === 'bulkclix') {
+          // For BulkClix, show confirmation message
+          alert(
+            `📱 Payment Request Sent!\n\n` +
+            `Phone: ${data.data.data.phoneNumber}\n` +
+            `Amount: GH₵${data.data.data.amount.toFixed(2)}\n\n` +
+            `Please check your phone and approve the payment.\n` +
+            `You will be redirected to verify your payment.`
+          );
+          
+          // Close modal and redirect to verification page
+          onClose();
+          setTimeout(() => {
+            router.push(
+              `/shop/${storeSlug}/payment/verify?reference=${data.data.transactionId}&gateway=bulkclix`
+            );
+          }, 1500);
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Payment initialization failed. Please try again.');
+      console.error('Payment initialization error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div 
+          className="sticky top-0 p-6 text-white rounded-t-2xl flex justify-between items-start"
+          style={{
+            background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
+          }}
+        >
+          <div>
+            <h2 className="text-2xl font-bold flex items-center">
+              <CreditCard className="w-6 h-6 mr-2" />
+              Complete Purchase
+            </h2>
+            <p className="text-white/80 text-sm mt-1">
+              {product.capacity}GB {getNetworkName(product.network)} Bundle
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors disabled:opacity-50"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 space-y-4">
+          {/* Product Summary */}
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-gray-600 dark:text-gray-400">Product</span>
+              <span className="font-bold text-gray-900 dark:text-white">
+                {product.capacity}GB {getNetworkName(product.network)}
+              </span>
+            </div>
+            <div className="w-full h-px bg-gray-200 dark:bg-gray-600 mb-3"></div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Total Amount</span>
+              <span className="text-2xl font-bold" style={{ color: customColors.primary }}>
+                GH₵ {product.sellingPrice.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {/* Form Fields */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={customerData.name}
+                onChange={handleInputChange}
+                placeholder="John Doe"
+                disabled={loading}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-offset-0 focus:ring-blue-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={customerData.email}
+                onChange={handleInputChange}
+                placeholder="john@example.com"
+                disabled={loading}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-offset-0 focus:ring-blue-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                name="phoneNumber"
+                value={customerData.phoneNumber}
+                onChange={handleInputChange}
+                placeholder="0241234567"
+                disabled={loading}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-offset-0 focus:ring-blue-500 disabled:opacity-50 transition-all"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                💬 Data will be delivered to this number
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Payment Method
+              </label>
+              <select
+                name="paymentMethod"
+                value={customerData.paymentMethod}
+                onChange={handleInputChange}
+                disabled={loading}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-offset-0 focus:ring-blue-500 disabled:opacity-50 transition-all"
+              >
+                <option value="auto">⚡ Automatic (Fastest Available)</option>
+                <option value="paystack">💳 Paystack (Card, Bank, USSD)</option>
+                <option value="bulkclix">📱 BulkClix (Mobile Money)</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {customerData.paymentMethod === 'auto' 
+                  ? '✓ System will use the fastest available gateway'
+                  : customerData.paymentMethod === 'paystack'
+                  ? '✓ Pay with card, bank transfer, or USSD'
+                  : '✓ Receive payment prompt on your phone'}
+              </p>
+            </div>
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+            <p className="text-xs text-blue-700 dark:text-blue-400">
+              <CheckCircle className="w-4 h-4 inline mr-1" />
+              <strong>Secure Payment:</strong> Your data is encrypted and safe.
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+              <Clock className="w-4 h-4 inline mr-1" />
+              <strong>Fast Delivery:</strong> Data delivered within 10-60 minutes after payment.
+            </p>
+          </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="p-6 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={initializePayment}
+            disabled={loading}
+            className="flex-1 px-4 py-3 text-white font-bold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{
+              background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
+            }}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4" />
+                Pay GH₵ {product.sellingPrice.toFixed(2)}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== PRODUCT CARD COMPONENT =====
+function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  const formatCurrency = (amount) => {
+    return `GH₵ ${(amount || 0).toFixed(2)}`;
+  };
+  
+  const getNetworkColor = (network) => {
+    switch(network) {
+      case 'YELLO': return 'from-yellow-400 to-yellow-600';
+      case 'TELECEL': return 'from-red-400 to-red-600';
+      case 'AT_PREMIUM': return 'from-purple-400 to-purple-600';
+      default: return 'from-blue-400 to-blue-600';
+    }
+  };
+  
+  const getNetworkName = (network) => {
+    if (network === 'YELLO') return 'MTN';
+    if (network === 'TELECEL') return 'Telecel';
+    return 'AirtelTigo';
+  };
+  
+  const handleBuyClick = (e) => {
+    e.stopPropagation();
+    if (product.inStock !== false) {
+      setShowPaymentModal(true);
+    }
+  };
+  
+  return (
+    <>
+      <article 
+        className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden"
+      >
+        {/* Sale Badge */}
+        {product.isOnSale && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="inline-flex items-center px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg gap-1">
+              <Sparkles className="w-3 h-3" />
+              SALE
+            </span>
+          </div>
+        )}
+        
+        {/* Featured Star */}
+        {product.featured && (
+          <div className="absolute top-2 right-2 z-10 animate-bounce">
+            <Star className="w-5 h-5 text-yellow-500 fill-current drop-shadow-lg" aria-label="Featured product" />
+          </div>
+        )}
+        
+        {/* Network Banner */}
+        <div className={`h-1 bg-gradient-to-r ${getNetworkColor(product.network)}`} aria-hidden="true"></div>
+        
+        <div className="p-4">
+          {/* Network & Capacity */}
+          <div className="mb-3">
+            <span className={`inline-block px-3 py-1 bg-gradient-to-r ${getNetworkColor(product.network)} text-white text-xs font-bold rounded-full mb-2`}>
+              {getNetworkName(product.network)}
+            </span>
+            
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {product.capacity}GB
+            </h3>
+            
+            {product.displayName && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{product.displayName}</p>
+            )}
+          </div>
+          
+          {/* Price */}
+          <div className="mb-3">
+            {product.isOnSale && product.salePrice ? (
+              <div>
+                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                  {formatCurrency(product.salePrice)}
+                </span>
+                <span className="text-xs text-gray-500 line-through ml-2">
+                  {formatCurrency(product.sellingPrice)}
+                </span>
+                <div className="mt-1">
+                  <span className="inline-block px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full font-semibold">
+                    Save {formatCurrency(product.sellingPrice - product.salePrice)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(product.sellingPrice)}
+              </span>
+            )}
+          </div>
+          
+          {/* Features */}
+          <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" aria-hidden="true" />
+              <span>90 days</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Zap className="w-3 h-3" aria-hidden="true" />
+              <span>Fast</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Shield className="w-3 h-3" aria-hidden="true" />
+              <span>Safe</span>
+            </div>
+          </div>
+          
+          {/* Action Button */}
+          <button 
+            onClick={handleBuyClick}
+            disabled={product.inStock === false}
+            className="w-full py-3 text-white font-bold rounded-lg hover:shadow-lg active:scale-95 transition-all duration-200 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: product.inStock === false 
+                ? '#ccc' 
+                : `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
+            }}
+            aria-label={`Buy ${product.capacity}GB ${getNetworkName(product.network)} bundle`}
+          >
+            {product.inStock === false ? (
+              <>
+                <X className="w-4 h-4 inline mr-2" />
+                Out of Stock
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-4 h-4 inline mr-2" />
+                Buy Now
+              </>
+            )}
+          </button>
+        </div>
+      </article>
+      
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        product={product}
+        storeSlug={storeSlug}
+        customColors={customColors}
+      />
+    </>
+  );
+}
+
+// ===== MAIN STORE PAGE COMPONENT =====
 export default function StorePage() {
   const params = useParams();
   const router = useRouter();
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [customColors, setCustomColors] = useState({
     primary: '#1976d2',
@@ -60,7 +529,6 @@ export default function StorePage() {
     if (params.storeSlug && typeof window !== 'undefined') {
       try {
         localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
-        console.log('Stored storeSlug in localStorage:', params.storeSlug);
       } catch (error) {
         console.error('Error storing storeSlug in localStorage:', error);
       }
@@ -138,10 +606,6 @@ export default function StorePage() {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return `GH₵ ${(amount || 0).toFixed(2)}`;
-  };
-
   const isStoreOpen = () => {
     if (!store || !store.isOpen) return false;
     if (!store.autoCloseOutsideHours) return true;
@@ -156,80 +620,41 @@ export default function StorePage() {
     return currentTime >= todayHours.open && currentTime <= todayHours.close;
   };
 
-  const adjustColor = (color, amount) => {
-    const clamp = (num) => Math.min(255, Math.max(0, num));
-    const hex = color.replace('#', '');
-    const num = parseInt(hex, 16);
-    const r = clamp((num >> 16) + amount);
-    const g = clamp(((num >> 8) & 0x00FF) + amount);
-    const b = clamp((num & 0x0000FF) + amount);
-    return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
-  };
-
-  const featuredProducts = products.filter(p => p.featured || p.isOnSale).slice(0, 4);
-
-  // ============ SEO: STRUCTURED DATA GENERATOR ============
   const generateStructuredData = () => {
     if (!store) return null;
     
     const baseUrl = 'https://www.cheapdata.shop';
     const storeUrl = `${baseUrl}/shop/${params.storeSlug}`;
     
-    const structuredData = {
+    return {
       '@context': 'https://schema.org',
       '@graph': [
-        // Organization/Store
         {
           '@type': 'Store',
           '@id': `${storeUrl}#store`,
           name: store.storeName,
           description: store.storeDescription || `Buy affordable data bundles from ${store.storeName}. Fast delivery, best prices on MTN, Telecel, and AirtelTigo bundles in Ghana.`,
-          image: store.storeLogo || store.bannerImage,
+          image: store.storeLogo,
           logo: store.storeLogo,
           url: storeUrl,
           telephone: store.contactInfo?.phone,
           email: store.contactInfo?.email,
-          address: store.contactInfo?.address ? {
-            '@type': 'PostalAddress',
-            addressCountry: 'GH',
-            addressLocality: store.contactInfo.address,
-          } : undefined,
           priceRange: '₵₵',
           currenciesAccepted: 'GHS',
           paymentAccepted: 'Cash, Mobile Money, Card',
-          openingHoursSpecification: store.businessHours ? Object.entries(store.businessHours)
-            .filter(([day, hours]) => hours.isOpen)
-            .map(([day, hours]) => ({
-              '@type': 'OpeningHoursSpecification',
-              dayOfWeek: `https://schema.org/${day.charAt(0).toUpperCase() + day.slice(1)}`,
-              opens: hours.open,
-              closes: hours.close,
-            })) : undefined,
-          aggregateRating: store.rating ? {
+          aggregateRating: {
             '@type': 'AggregateRating',
-            ratingValue: store.rating.average || 4.8,
-            reviewCount: store.rating.count || 250,
-            bestRating: 5,
-            worstRating: 1
-          } : {
-            '@type': 'AggregateRating',
-            ratingValue: 4.8,
-            reviewCount: 250,
+            ratingValue: store.rating?.average || 4.8,
+            reviewCount: store.rating?.count || 250,
             bestRating: 5,
             worstRating: 1
           },
         },
-        
-        // Website
         {
           '@type': 'WebSite',
           '@id': `${storeUrl}#website`,
           url: storeUrl,
           name: `${store.storeName} | CheapData Shop`,
-          description: 'Buy affordable data bundles online in Ghana',
-          publisher: {
-            '@id': `${storeUrl}#store`
-          },
           potentialAction: {
             '@type': 'SearchAction',
             target: {
@@ -238,108 +663,11 @@ export default function StorePage() {
             },
             'query-input': 'required name=search_term_string'
           }
-        },
-        
-        // WebPage
-        {
-          '@type': 'WebPage',
-          '@id': `${storeUrl}#webpage`,
-          url: storeUrl,
-          name: `${store.storeName} - Buy Data Bundles`,
-          isPartOf: {
-            '@id': `${storeUrl}#website`
-          },
-          about: {
-            '@id': `${storeUrl}#store`
-          },
-          description: `Shop affordable MTN, Telecel, and AirtelTigo data bundles from ${store.storeName}`,
-          breadcrumb: {
-            '@id': `${storeUrl}#breadcrumb`
-          }
-        },
-        
-        // Breadcrumb
-        {
-          '@type': 'BreadcrumbList',
-          '@id': `${storeUrl}#breadcrumb`,
-          itemListElement: [
-            {
-              '@type': 'ListItem',
-              position: 1,
-              name: 'Home',
-              item: baseUrl
-            },
-            {
-              '@type': 'ListItem',
-              position: 2,
-              name: 'Shops',
-              item: `${baseUrl}/shop`
-            },
-            {
-              '@type': 'ListItem',
-              position: 3,
-              name: store.storeName,
-              item: storeUrl
-            }
-          ]
-        },
-        
-        // ItemList for Products
-        {
-          '@type': 'ItemList',
-          '@id': `${storeUrl}#productlist`,
-          name: `${store.storeName} Products`,
-          description: 'Data bundle products available at this store',
-          numberOfItems: products.length,
-          itemListElement: featuredProducts.slice(0, 8).map((product, index) => ({
-            '@type': 'ListItem',
-            position: index + 1,
-            item: {
-              '@type': 'Product',
-              '@id': `${storeUrl}/products#${product._id}`,
-              name: `${product.capacity}GB ${product.network === 'YELLO' ? 'MTN' : product.network === 'TELECEL' ? 'Telecel' : 'AirtelTigo'} Data Bundle`,
-              description: product.displayName || `${product.capacity}GB data bundle for ${product.network}`,
-              image: store.storeLogo,
-              brand: {
-                '@type': 'Brand',
-                name: product.network === 'YELLO' ? 'MTN Ghana' : product.network === 'TELECEL' ? 'Telecel Ghana' : 'AirtelTigo Ghana'
-              },
-              offers: {
-                '@type': 'Offer',
-                url: `${storeUrl}/products`,
-                priceCurrency: 'GHS',
-                price: (product.isOnSale ? product.salePrice : product.sellingPrice).toFixed(2),
-                priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                availability: product.inStock !== false ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                seller: {
-                  '@id': `${storeUrl}#store`
-                }
-              }
-            }
-          }))
-        },
-        
-        // Local Business (if address available)
-        ...(store.contactInfo?.address ? [{
-          '@type': 'LocalBusiness',
-          '@id': `${storeUrl}#localbusiness`,
-          name: store.storeName,
-          image: store.storeLogo,
-          address: {
-            '@type': 'PostalAddress',
-            addressLocality: store.contactInfo.address,
-            addressCountry: 'GH'
-          },
-          telephone: store.contactInfo?.phone,
-          priceRange: '₵₵'
-        }] : [])
-      ].filter(Boolean)
+        }
+      ]
     };
-    
-    return structuredData;
   };
 
-  // ============ SEO: STRUCTURED DATA COMPONENT ============
   const StructuredDataScript = () => {
     const structuredData = generateStructuredData();
     if (!structuredData) return null;
@@ -351,6 +679,8 @@ export default function StorePage() {
       />
     );
   };
+
+  const featuredProducts = products.filter(p => p.featured || p.isOnSale).slice(0, 4);
 
   if (loading) {
     return (
@@ -364,9 +694,27 @@ export default function StorePage() {
     );
   }
 
+  if (!store) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 px-4">
+        <div className="text-center max-w-md">
+          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Store Not Found</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">This store is no longer available.</p>
+          <Link 
+            href="/"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
+          >
+            <ArrowRight className="w-4 h-4 mr-2" />
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* SEO: Structured Data */}
       <StructuredDataScript />
       
       <div className={`${isDarkMode ? 'dark bg-gray-900' : 'bg-gradient-to-b from-blue-50 via-white to-purple-50'} min-h-screen transition-all duration-300`}>
@@ -402,7 +750,6 @@ export default function StorePage() {
               <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-8">
                 {/* Left Content */}
                 <div className="flex-1 text-center lg:text-left">
-                  {/* Store Header */}
                   <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 mb-4">
                     {store?.storeLogo && (
                       <img 
@@ -412,53 +759,53 @@ export default function StorePage() {
                       />
                     )}
                     <div>
-                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold flex items-center gap-2">
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold flex items-center gap-2 justify-center lg:justify-start">
                         {store?.storeName}
                         {store?.verification?.isVerified && (
                           <Shield className="w-5 h-5 text-green-400" aria-label="Verified store" />
                         )}
                       </h1>
-                      <span className={`inline-flex items-center mt-1 px-2 py-1 rounded-full text-xs font-bold ${
+                      <span className={`inline-flex items-center mt-1 px-3 py-1 rounded-full text-xs font-bold ${
                         isStoreOpen() 
                           ? 'bg-green-500/20 text-green-300' 
                           : 'bg-red-500/20 text-red-300'
                       }`}>
-                        {isStoreOpen() ? '🟢 Open Now' : '🔴 Closed'}
+                        <span className="inline-block w-2 h-2 rounded-full mr-2"
+                              style={{ backgroundColor: isStoreOpen() ? '#4ade80' : '#ef4444' }}></span>
+                        {isStoreOpen() ? 'Open Now' : 'Closed'}
                       </span>
                     </div>
                   </div>
                   
-                  {/* Main Message */}
                   <div className="mb-6">
                     <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 text-white">
                       Buy Affordable Data Bundles
                     </h2>
                     <p className="text-white/90 text-base sm:text-lg">
-                      30-60min delivery • Best prices • All networks
+                      ⚡ 30-60min delivery • 💰 Best prices • 🌐 All networks
                     </p>
                   </div>
                   
-                  {/* CTA Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-                    <Link 
-                      href={`/shop/${params.storeSlug}/products`}
+                    <a 
+                      href="#products"
                       className="group inline-flex items-center justify-center px-6 py-3 bg-white text-gray-900 font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                       style={{ color: customColors.primary }}
                     >
                       <ShoppingBag className="w-5 h-5 mr-2" />
                       Shop Now
                       <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Link>
+                    </a>
                     
-                    {store?.whatsappSettings?.communityLink && (
+                    {store?.contactInfo?.whatsappNumber && (
                       <a 
-                        href={store.whatsappSettings.communityLink}
+                        href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group inline-flex items-center justify-center px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                       >
                         <MessageCircle className="w-5 h-5 mr-2" />
-                        Join Community
+                        WhatsApp Support
                       </a>
                     )}
                   </div>
@@ -512,14 +859,14 @@ export default function StorePage() {
                 </div>
                 <div className="flex flex-col items-center">
                   <WifiIcon className="w-5 h-5 text-purple-300 mb-1" />
-                  <span className="text-xs">All Networks</span>
+                  <span className="text-xs">Networks</span>
                 </div>
               </div>
             </div>
           </section>
 
           {/* Shop by Network */}
-          <section>
+          <section id="products">
             <div className="text-center mb-6">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Choose Your Network</h2>
               <p className="text-gray-600 dark:text-gray-400">Select your network and start saving</p>
@@ -530,18 +877,17 @@ export default function StorePage() {
                 { network: 'YELLO', name: 'MTN', logo: <MTNLogo />, color: 'from-yellow-400 to-yellow-600' },
                 { network: 'TELECEL', name: 'Telecel', logo: <TelecelLogo />, color: 'from-red-400 to-red-600' },
                 { network: 'AT_PREMIUM', name: 'AirtelTigo', logo: <AirtelTigoLogo />, color: 'from-purple-400 to-purple-600' },
-                { network: 'at', name: 'AirtelTigo', logo: <AirtelTigoLogo />, color: 'from-blue-400 to-blue-600' }
               ].map(({ network, name, logo, color }) => {
                 const networkProducts = products.filter(p => p.network === network);
                 
                 if (networkProducts.length === 0) return null;
                 
                 return (
-                  <Link
+                  <a
                     key={network}
-                    href={`/shop/${params.storeSlug}/products?network=${network}`}
+                    href={`#products`}
                     className="group relative overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                    aria-label={`Shop ${name} data bundles`}
+                    aria-label={`${name} data bundles`}
                   >
                     <div className={`bg-gradient-to-br ${color} p-4 sm:p-6 h-32 sm:h-36 flex flex-col justify-between`}>
                       <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-30 transition-opacity" aria-hidden="true">
@@ -552,16 +898,16 @@ export default function StorePage() {
                         <div className="mb-2 transform scale-75 sm:scale-100 origin-left">{logo}</div>
                         <h3 className="text-white font-bold text-lg sm:text-xl">{name}</h3>
                         <p className="text-white/90 text-xs sm:text-sm">
-                          {networkProducts.length} bundles
+                          {networkProducts.length} bundle{networkProducts.length > 1 ? 's' : ''}
                         </p>
                       </div>
                       
                       <div className="flex items-center text-white font-medium">
-                        <span className="text-xs sm:text-sm">Shop Now</span>
+                        <span className="text-xs sm:text-sm">Explore</span>
                         <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-2 group-hover:translate-x-2 transition-transform" />
                       </div>
                     </div>
-                  </Link>
+                  </a>
                 );
               })}
             </nav>
@@ -569,25 +915,15 @@ export default function StorePage() {
 
           {/* Featured Products */}
           {featuredProducts.length > 0 && (
-            <section>
-              <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-                <div className="text-center sm:text-left mb-3 sm:mb-0">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
-                    <Sparkles className="inline w-6 h-6 mr-2 text-yellow-500" />
+            <section id="featured">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                    <Sparkles className="w-7 h-7 text-yellow-500" />
                     Hot Deals
                   </h2>
                   <p className="text-gray-600 dark:text-gray-400 text-sm">Limited time offers!</p>
                 </div>
-                <Link 
-                  href={`/shop/${params.storeSlug}/products`}
-                  className="inline-flex items-center px-5 py-2 text-white font-bold rounded-full hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm"
-                  style={{
-                    background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
-                  }}
-                >
-                  View All
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Link>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -604,26 +940,83 @@ export default function StorePage() {
             </section>
           )}
 
+          {/* All Products */}
+          {products.length > 0 && (
+            <section>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">All Products</h2>
+                <p className="text-gray-600 dark:text-gray-400">Browse all available data bundles</p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {products.map((product) => (
+                  <ProductCard 
+                    key={product._id} 
+                    product={product} 
+                    storeSlug={params.storeSlug} 
+                    isDarkMode={isDarkMode}
+                    customColors={customColors}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Final CTA */}
-          <section className="text-center py-8 px-4">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3">
+          <section className="text-center py-8 px-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl text-white">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3">
               Ready to Save on Data? 🚀
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
-              Join thousands of customers enjoying affordable bundles
+            <p className="text-lg text-white/90 mb-6 max-w-2xl mx-auto">
+              Join thousands of customers enjoying affordable bundles with fast delivery
             </p>
-            <Link
-              href={`/shop/${params.storeSlug}/products`}
-              className="inline-flex items-center justify-center px-8 py-4 text-white font-bold text-lg rounded-full shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300"
-              style={{
-                background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
-              }}
+            <a
+              href="#products"
+              className="inline-flex items-center justify-center px-8 py-4 text-white font-bold text-lg bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition-all duration-300 hover:scale-105"
             >
               <Rocket className="w-5 h-5 mr-2 animate-bounce" />
               Start Shopping Now
               <ArrowRight className="w-5 h-5 ml-2" />
-            </Link>
+            </a>
           </section>
+
+          {/* Store Info */}
+          {store && (
+            <section className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">About {store.storeName}</h2>
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{store.storeDescription}</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {store.contactInfo?.phoneNumber && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="w-5 h-5" style={{ color: customColors.primary }} />
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Phone</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{store.contactInfo.phoneNumber}</p>
+                    </div>
+                  </div>
+                )}
+                {store.contactInfo?.email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-5 h-5" style={{ color: customColors.primary }} />
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Email</p>
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">{store.contactInfo.email}</p>
+                    </div>
+                  </div>
+                )}
+                {store.metrics?.rating && (
+                  <div className="flex items-center gap-3">
+                    <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Rating</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{store.metrics.rating.toFixed(1)} ⭐</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
         </div>
 
         {/* CSS Animations */}
@@ -651,126 +1044,5 @@ export default function StorePage() {
         `}</style>
       </div>
     </>
-  );
-}
-
-// Product Card Component
-function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
-  const router = useRouter();
-  
-  const formatCurrency = (amount) => {
-    return `GH₵ ${(amount || 0).toFixed(2)}`;
-  };
-  
-  const getNetworkColor = (network) => {
-    switch(network) {
-      case 'YELLO': return 'from-yellow-400 to-yellow-600';
-      case 'TELECEL': return 'from-red-400 to-red-600';
-      case 'AT_PREMIUM': return 'from-purple-400 to-purple-600';
-      default: return 'from-blue-400 to-blue-600';
-    }
-  };
-  
-  const getNetworkName = (network) => {
-    if (network === 'YELLO') return 'MTN';
-    if (network === 'TELECEL') return 'Telecel';
-    return 'AirtelTigo';
-  };
-  
-  return (
-    <article 
-      className="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105 overflow-hidden"
-      onClick={() => router.push(`/shop/${storeSlug}/products`)}
-    >
-      {/* Sale Badge */}
-      {product.isOnSale && (
-        <div className="absolute top-2 left-2 z-10">
-          <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-lg">
-            <Sparkles className="w-3 h-3 mr-1" />
-            SALE
-          </span>
-        </div>
-      )}
-      
-      {/* Featured Star */}
-      {product.featured && (
-        <div className="absolute top-2 right-2 z-10">
-          <Star className="w-5 h-5 text-yellow-500 fill-current drop-shadow-lg" aria-label="Featured product" />
-        </div>
-      )}
-      
-      {/* Network Banner */}
-      <div className={`h-1 bg-gradient-to-r ${getNetworkColor(product.network)}`} aria-hidden="true"></div>
-      
-      <div className="p-4">
-        {/* Network & Capacity */}
-        <div className="mb-3">
-          <span className={`inline-block px-2 py-1 bg-gradient-to-r ${getNetworkColor(product.network)} text-white text-xs font-bold rounded-full mb-2`}>
-            {getNetworkName(product.network)}
-          </span>
-          
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {product.capacity}GB
-          </h3>
-          
-          {product.displayName && (
-            <p className="text-xs text-gray-600 dark:text-gray-400">{product.displayName}</p>
-          )}
-        </div>
-        
-        {/* Price */}
-        <div className="mb-3">
-          {product.isOnSale && product.salePrice ? (
-            <div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(product.salePrice)}
-              </span>
-              <span className="text-xs text-gray-500 line-through ml-2">
-                {formatCurrency(product.sellingPrice)}
-              </span>
-              <div className="mt-1">
-                <span className="inline-block px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
-                  Save {formatCurrency(product.sellingPrice - product.salePrice)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <span className="text-xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(product.sellingPrice)}
-            </span>
-          )}
-        </div>
-        
-        {/* Features */}
-        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3">
-          <div className="flex items-center">
-            <Clock className="w-3 h-3 mr-1" aria-hidden="true" />
-            <span>90 days validity</span>
-          </div>
-          <div className="flex items-center">
-            <Zap className="w-3 h-3 mr-1" aria-hidden="true" />
-            <span>Fast delivery</span>
-          </div>
-        </div>
-        
-        {/* Action Button */}
-        <button 
-          className="w-full py-2 text-white font-bold rounded-lg hover:shadow-lg transition-all duration-300 text-sm"
-          style={{
-            background: `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})`
-          }}
-          aria-label={`Buy ${product.capacity}GB ${getNetworkName(product.network)} bundle`}
-        >
-          Buy Now
-        </button>
-        
-        {/* Out of Stock Overlay */}
-        {product.inStock === false && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
-            <span className="bg-red-500 text-white px-3 py-1 rounded-full font-bold text-sm">Out of Stock</span>
-          </div>
-        )}
-      </div>
-    </article>
   );
 }
