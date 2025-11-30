@@ -18,7 +18,7 @@ import successAnimation from '@/public/animations/payment-success.json';
 import errorAnimation from '@/public/animations/warning.json';
 
 // API Base - Using Proxy to prevent CORS
-const API_BASE = '/api/proxy/v1';
+const API_BASE = '/api/proxy';
 
 export default function PaymentVerifyPage() {
   const params = useParams();
@@ -61,7 +61,7 @@ export default function PaymentVerifyPage() {
       console.log('[Payment Verify] Full URL:', `${API_BASE}/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${reference}`);
 
       const response = await fetch(
-        `${API_BASE}/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${reference}`,
+        `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${reference}`,
         { headers: { 'Accept': 'application/json' } }
       );
 
@@ -92,7 +92,7 @@ export default function PaymentVerifyPage() {
   // Fetch store data using PROXY
   const fetchStoreData = async () => {
     try {
-      const response = await fetch(`${API_BASE}/agent-stores/store/${params.storeSlug}`);
+      const response = await fetch(`${API_BASE}/v1/agent-stores/store/${params.storeSlug}`);
       const data = await response.json();
       
       if (data.status === 'success') {
