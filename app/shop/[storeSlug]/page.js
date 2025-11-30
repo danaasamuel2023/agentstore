@@ -322,9 +322,12 @@ function PaymentModal({
   );
 }
 
-// ===== PRODUCT CARD - Network Colored Design =====
-function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+// ===== PRODUCT CARD - Network Colored Design with Inline Payment =====
+function ProductCard({ product, storeSlug, isDarkMode, customColors, isSelected, onSelect }) {
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   const getNetworkName = (network) => {
     if (network === 'YELLO') return 'MTN';
@@ -336,31 +339,39 @@ function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
   const getCardColors = (network) => {
     if (network === 'YELLO') return {
       card: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
+      expanded: 'bg-yellow-500',
       text: 'text-black',
       subtext: 'text-black/70',
       button: 'bg-black hover:bg-gray-900 text-yellow-400',
-      footer: 'bg-black text-white'
+      footer: 'bg-black text-white',
+      input: 'bg-yellow-300 text-black placeholder-yellow-700 focus:ring-yellow-600'
     };
     if (network === 'TELECEL') return {
       card: 'bg-gradient-to-br from-red-600 to-red-700',
+      expanded: 'bg-red-600',
       text: 'text-white',
       subtext: 'text-white/70',
       button: 'bg-red-900 hover:bg-red-800 text-white',
-      footer: 'bg-black/50 text-white'
+      footer: 'bg-black/50 text-white',
+      input: 'bg-white/90 text-black placeholder-gray-500 focus:ring-white'
     };
     if (network === 'AT_PREMIUM') return {
       card: 'bg-gradient-to-br from-purple-600 to-purple-700',
+      expanded: 'bg-purple-600',
       text: 'text-white',
       subtext: 'text-white/70',
       button: 'bg-purple-900 hover:bg-purple-800 text-white',
-      footer: 'bg-black/50 text-white'
+      footer: 'bg-black/50 text-white',
+      input: 'bg-white/90 text-black placeholder-gray-500 focus:ring-white'
     };
     return {
       card: 'bg-gradient-to-br from-blue-600 to-blue-700',
+      expanded: 'bg-blue-600',
       text: 'text-white',
       subtext: 'text-white/70',
       button: 'bg-blue-900 hover:bg-blue-800 text-white',
-      footer: 'bg-black/50 text-white'
+      footer: 'bg-black/50 text-white',
+      input: 'bg-white/90 text-black placeholder-gray-500 focus:ring-white'
     };
   };
   
@@ -371,80 +382,195 @@ function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
     return <Package className="w-12 h-12" />;
   };
   
+  const getPhoneNumberPlaceholder = (network) => {
+    if (network === 'YELLO') return '024XXXXXXX';
+    if (network === 'TELECEL') return '020/050XXXXXXX';
+    if (network === 'AT_PREMIUM') return '026/027XXXXXXX';
+    return '0XXXXXXXXX';
+  };
+  
+  const validatePhoneNumber = (number, network) => {
+    const clean = number.replace(/[\s-]/g, '');
+    if (network === 'YELLO') return clean.length === 10 && /^0\d{9}$/.test(clean);
+    if (network === 'TELECEL') return /^(020|050)\d{7}$/.test(clean);
+    if (network === 'AT_PREMIUM') return /^(026|027|056|057)\d{7}$/.test(clean);
+    return clean.length === 10 && /^0\d{9}$/.test(clean);
+  };
+  
+  const generateAutoEmail = (phone) => {
+    const clean = phone.replace(/[\s-]/g, '');
+    return `customer_${clean}@datamartgh.shop`;
+  };
+  
+  const handlePurchase = async () => {
+    setErrorMessage('');
+    
+    if (!product.inStock) {
+      setErrorMessage('This bundle is out of stock.');
+      return;
+    }
+    
+    if (!validatePhoneNumber(phoneNumber, product.network)) {
+      const networkName = getNetworkName(product.network);
+      setErrorMessage(`Enter a valid ${networkName} number`);
+      return;
+    }
+    
+    if (!customerName.trim()) {
+      setErrorMessage('Please enter your name');
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      const response = await fetch(`${API_BASE}/agent-stores/stores/${storeSlug}/purchase/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id,
+          phoneNumber,
+          customerEmail: generateAutoEmail(phoneNumber),
+          customerName,
+          quantity: 1
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.data.authorizationUrl) {
+        window.location.href = data.data.authorizationUrl;
+      } else {
+        setErrorMessage(data.message || 'Failed to initialize payment');
+      }
+    } catch (error) {
+      setErrorMessage('Error: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
   const colors = getCardColors(product.network);
   
   return (
-    <>
-      <article className="relative group">
-        {/* Badges */}
-        {product.inStock === false && (
-          <div className="absolute top-3 right-3 z-10">
-            <span className="bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">OUT OF STOCK</span>
+    <article className="flex flex-col relative">
+      {/* Badges */}
+      {product.inStock === false && (
+        <div className="absolute top-3 right-3 z-10">
+          <span className="bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">OUT OF STOCK</span>
+        </div>
+      )}
+      {product.isOnSale && product.salePrice && product.inStock !== false && (
+        <div className="absolute top-3 left-3 z-10">
+          <span className="bg-green-500 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">SALE</span>
+        </div>
+      )}
+      
+      {/* Card */}
+      <div 
+        className={`${colors.card} ${colors.text} overflow-hidden shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all ${isSelected ? 'rounded-t-xl' : 'rounded-xl'}`}
+        onClick={() => onSelect(product._id)}
+      >
+        {/* Card Content - Horizontal on Mobile */}
+        <div className="flex sm:flex-col items-center p-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 sm:mb-2">
+            {getNetworkLogo(product.network)}
           </div>
-        )}
-        {product.isOnSale && product.salePrice && product.inStock !== false && (
-          <div className="absolute top-3 left-3 z-10">
-            <span className="bg-green-500 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">SALE</span>
+          <div className="ml-4 sm:ml-0 sm:text-center flex-1">
+            <h3 className="text-2xl sm:text-3xl font-bold">{product.capacity}GB</h3>
+            <p className={`text-xs ${colors.subtext}`}>
+              {getNetworkName(product.network)} Bundle
+            </p>
           </div>
-        )}
-        
-        {/* Card */}
-        <div 
-          className={`${colors.card} ${colors.text} rounded-xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer`}
-          onClick={() => product.inStock !== false && setShowPaymentModal(true)}
-        >
-          {/* Card Content - Horizontal on Mobile */}
-          <div className="flex sm:flex-col items-center p-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 sm:mb-2">
-              {getNetworkLogo(product.network)}
-            </div>
-            <div className="ml-4 sm:ml-0 sm:text-center flex-1">
-              <h3 className="text-2xl sm:text-3xl font-bold">{product.capacity}GB</h3>
-              <p className={`text-xs ${colors.subtext}`}>
-                {getNetworkName(product.network)} Bundle
-              </p>
-            </div>
-            <div className="sm:hidden text-right">
-              {product.isOnSale && product.salePrice ? (
-                <>
-                  <p className="text-xl font-bold">₵{product.salePrice.toFixed(2)}</p>
-                  <p className="text-xs line-through opacity-70">₵{product.sellingPrice.toFixed(2)}</p>
-                </>
-              ) : (
-                <p className="text-xl font-bold">₵{product.sellingPrice.toFixed(2)}</p>
-              )}
-            </div>
-          </div>
-          
-          {/* Price Footer - Desktop Only */}
-          <div className={`hidden sm:grid grid-cols-2 ${colors.footer}`}>
-            <div className="p-3 text-center border-r border-white/10">
-              {product.isOnSale && product.salePrice ? (
-                <>
-                  <p className="font-bold text-lg">₵{product.salePrice.toFixed(2)}</p>
-                  <p className="text-[10px] line-through opacity-60">₵{product.sellingPrice.toFixed(2)}</p>
-                </>
-              ) : (
-                <p className="font-bold text-lg">₵{product.sellingPrice.toFixed(2)}</p>
-              )}
-              <p className="text-[10px] text-gray-400">Price</p>
-            </div>
-            <div className="p-3 text-center">
-              <p className="font-bold">90 Days</p>
-              <p className="text-[10px] text-gray-400">Validity</p>
-            </div>
+          <div className="sm:hidden text-right">
+            {product.isOnSale && product.salePrice ? (
+              <>
+                <p className="text-xl font-bold">₵{product.salePrice.toFixed(2)}</p>
+                <p className="text-xs line-through opacity-70">₵{product.sellingPrice.toFixed(2)}</p>
+              </>
+            ) : (
+              <p className="text-xl font-bold">₵{product.sellingPrice.toFixed(2)}</p>
+            )}
           </div>
         </div>
-      </article>
+        
+        {/* Price Footer - Desktop Only */}
+        <div className={`hidden sm:grid grid-cols-2 ${colors.footer}`}>
+          <div className="p-3 text-center border-r border-white/10">
+            {product.isOnSale && product.salePrice ? (
+              <>
+                <p className="font-bold text-lg">₵{product.salePrice.toFixed(2)}</p>
+                <p className="text-[10px] line-through opacity-60">₵{product.sellingPrice.toFixed(2)}</p>
+              </>
+            ) : (
+              <p className="font-bold text-lg">₵{product.sellingPrice.toFixed(2)}</p>
+            )}
+            <p className="text-[10px] text-gray-400">Price</p>
+          </div>
+          <div className="p-3 text-center">
+            <p className="font-bold">90 Days</p>
+            <p className="text-[10px] text-gray-400">Validity</p>
+          </div>
+        </div>
+      </div>
       
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        product={product}
-        storeSlug={storeSlug}
-        customColors={customColors}
-      />
-    </>
+      {/* Expanded Form */}
+      {isSelected && (
+        <div className={`${colors.expanded} p-4 rounded-b-xl shadow-lg`}>
+          {product.inStock === false ? (
+            <div className="text-center py-6">
+              <X className="w-12 h-12 mx-auto mb-2 opacity-50 text-white" />
+              <p className="font-bold text-white">Out of Stock</p>
+              <p className="text-xs text-white/70">Check back later or try other bundles</p>
+            </div>
+          ) : (
+            <>
+              {errorMessage && (
+                <div className="mb-3 p-2 rounded-lg text-sm flex items-center gap-2 bg-red-800/80 text-red-200">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  {errorMessage}
+                </div>
+              )}
+              
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-white/80 mb-1">Your Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter your name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium ${colors.input} focus:ring-2 focus:outline-none`}
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-white/80 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  placeholder={getPhoneNumberPlaceholder(product.network)}
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium ${colors.input} focus:ring-2 focus:outline-none`}
+                />
+                <p className="text-[10px] text-white/60 mt-1">Data will be sent to this number</p>
+              </div>
+              
+              <button
+                onClick={handlePurchase}
+                disabled={isProcessing}
+                className={`w-full py-3 ${colors.button} font-bold rounded-lg transition-colors text-sm disabled:opacity-50`}
+              >
+                {isProcessing ? (
+                  <><Loader2 className="w-4 h-4 inline mr-2 animate-spin" /> Processing...</>
+                ) : (
+                  <>Buy {product.capacity}GB for ₵{product.isOnSale && product.salePrice ? product.salePrice.toFixed(2) : product.sellingPrice.toFixed(2)}</>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </article>
   );
 }
 
@@ -550,6 +676,11 @@ export default function StorePage() {
   };
 
   const featuredProducts = products.filter(p => p.featured || p.isOnSale).slice(0, 4);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  
+  const handleSelectProduct = (productId) => {
+    setSelectedProductId(selectedProductId === productId ? null : productId);
+  };
 
   // Loading State with Lottie
   if (loading) {
@@ -687,6 +818,8 @@ export default function StorePage() {
                   storeSlug={params.storeSlug} 
                   isDarkMode={isDarkMode}
                   customColors={customColors}
+                  isSelected={selectedProductId === product._id}
+                  onSelect={handleSelectProduct}
                 />
               ))}
             </div>
@@ -713,6 +846,8 @@ export default function StorePage() {
                   storeSlug={params.storeSlug} 
                   isDarkMode={isDarkMode}
                   customColors={customColors}
+                  isSelected={selectedProductId === product._id}
+                  onSelect={handleSelectProduct}
                 />
               ))}
             </div>
