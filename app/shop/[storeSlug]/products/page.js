@@ -1,4 +1,4 @@
-// app/shop/[storeSlug]/products/page.jsx - WITH PROXY API
+// app/shop/[storeSlug]/products/page.jsx - WITH PROXY API & 1 PRODUCT PER ROW ON MOBILE
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -32,7 +32,7 @@ const Toast = ({ message, type, onClose }) => {
         {type === 'success' && <span>✓</span>}
         {type === 'error' && <span>✕</span>}
         {type === 'warning' && <span>⚠</span>}
-        <span className="font-medium">{message}</span>
+        <span className="font-medium text-sm">{message}</span>
         <button onClick={onClose} className="ml-2 opacity-70 hover:opacity-100">×</button>
       </div>
     </div>
@@ -65,7 +65,7 @@ const LoadingOverlay = ({ isLoading, network }) => {
 
 // Network Logos
 const MTNLogo = () => (
-  <svg width="50" height="50" viewBox="0 0 200 200">
+  <svg width="60" height="60" viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="85" fill="#ffcc00" stroke="#000" strokeWidth="2"/>
     <path d="M50 80 L80 140 L100 80 L120 140 L150 80" stroke="#000" strokeWidth="12" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
     <text x="100" y="170" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="28">MTN</text>
@@ -73,14 +73,14 @@ const MTNLogo = () => (
 );
 
 const TelecelLogo = () => (
-  <svg width="50" height="50" viewBox="0 0 200 200">
+  <svg width="60" height="60" viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="85" fill="#fff" stroke="#cc0000" strokeWidth="2"/>
     <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="32" fill="#cc0000">TELECEL</text>
   </svg>
 );
 
 const AirtelTigoLogo = () => (
-  <svg width="50" height="50" viewBox="0 0 200 200">
+  <svg width="60" height="60" viewBox="0 0 200 200">
     <circle cx="100" cy="100" r="85" fill="#fff" stroke="#7c3aed" strokeWidth="2"/>
     <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="28" fill="#7c3aed">AT</text>
     <text x="100" y="140" textAnchor="middle" fontFamily="Arial" fontSize="18" fill="#7c3aed">PREMIUM</text>
@@ -253,30 +253,41 @@ export default function ProductsPage() {
     if (network === 'YELLO') return <MTNLogo />;
     if (network === 'TELECEL') return <TelecelLogo />;
     if (network === 'AT_PREMIUM') return <AirtelTigoLogo />;
-    return <Package className="w-12 h-12" />;
+    return <Package className="w-14 h-14" />;
   };
 
   const getCardColors = (network) => {
     if (network === 'YELLO') return {
-      card: 'bg-yellow-400',
+      card: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
       expanded: 'bg-yellow-500',
-      button: 'bg-black hover:bg-gray-900 text-yellow-400'
+      button: 'bg-black hover:bg-gray-900 text-yellow-400',
+      text: 'text-black'
     };
     if (network === 'TELECEL') return {
-      card: 'bg-gradient-to-tr from-red-700 to-red-500',
+      card: 'bg-gradient-to-br from-red-600 to-red-700',
       expanded: 'bg-red-600',
-      button: 'bg-red-900 hover:bg-red-800 text-white'
+      button: 'bg-red-900 hover:bg-red-800 text-white',
+      text: 'text-white'
     };
     if (network === 'AT_PREMIUM') return {
-      card: 'bg-gradient-to-tr from-purple-700 to-purple-500',
+      card: 'bg-gradient-to-br from-purple-600 to-purple-700',
       expanded: 'bg-purple-600',
-      button: 'bg-purple-900 hover:bg-purple-800 text-white'
+      button: 'bg-purple-900 hover:bg-purple-800 text-white',
+      text: 'text-white'
     };
     return {
-      card: 'bg-gradient-to-tr from-blue-700 to-blue-500',
+      card: 'bg-gradient-to-br from-blue-600 to-blue-700',
       expanded: 'bg-blue-600',
-      button: 'bg-blue-900 hover:bg-blue-800 text-white'
+      button: 'bg-blue-900 hover:bg-blue-800 text-white',
+      text: 'text-white'
     };
+  };
+
+  const getNetworkName = (network) => {
+    if (network === 'YELLO') return 'MTN';
+    if (network === 'TELECEL') return 'Telecel';
+    if (network === 'AT_PREMIUM') return 'AT Premium';
+    return network;
   };
 
   const networks = ['all', ...new Set(products.map(p => p.network))];
@@ -284,7 +295,7 @@ export default function ProductsPage() {
   // Loading with Lottie
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Lottie animationData={loadingAnimation} loop autoplay style={{ width: 120, height: 120 }} />
         <p className="text-gray-400 text-sm mt-2">Loading products...</p>
       </div>
@@ -292,217 +303,251 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'} min-h-screen`}>
+    <div className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
       {/* Toast */}
       {toast.visible && <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, visible: false }))} />}
       
       {/* Loading Overlay */}
       <LoadingOverlay isLoading={isProcessing} network={processingNetwork} />
       
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Data Bundles</h1>
-            <p className="text-gray-400 text-sm">Choose your bundle</p>
-          </div>
-          <button 
-            onClick={toggleDarkMode}
-            className="p-2 rounded-full bg-gray-800 text-yellow-400"
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Data Bundles</h1>
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Choose your bundle</p>
         </div>
+        <button 
+          onClick={toggleDarkMode}
+          className={`p-2 rounded-lg ${isDarkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-200 text-gray-700'}`}
+        >
+          {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+      </div>
 
-        {/* Filters */}
-        <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-            
-            {/* Network Filter */}
-            <div className="flex gap-2 flex-wrap">
-              {networks.map((network) => (
-                <button
-                  key={network}
-                  onClick={() => setSelectedNetwork(network)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedNetwork === network
-                      ? network === 'YELLO' ? 'bg-yellow-500 text-black' :
-                        network === 'TELECEL' ? 'bg-red-600 text-white' :
-                        network === 'AT_PREMIUM' ? 'bg-purple-600 text-white' :
-                        'bg-yellow-500 text-black'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  {network === 'all' ? 'All' : 
-                   network === 'YELLO' ? 'MTN' :
-                   network === 'AT_PREMIUM' ? 'AT' : 'Telecel'}
-                </button>
-              ))}
-            </div>
-            
-            {/* Sort */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-yellow-500"
-            >
-              <option value="price_low">Price ↑</option>
-              <option value="price_high">Price ↓</option>
-              <option value="capacity_low">Size ↑</option>
-              <option value="capacity_high">Size ↓</option>
-            </select>
+      {/* Filters */}
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-4 mb-4 shadow-sm`}>
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search bundles..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={`w-full pl-9 pr-4 py-2.5 rounded-lg text-sm ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' 
+                : 'bg-gray-100 border-gray-200 text-black placeholder-gray-400'
+            } border focus:ring-2 focus:ring-yellow-500 focus:border-transparent`}
+          />
+        </div>
+        
+        {/* Network Filter & Sort */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Network Tabs */}
+          <div className="flex gap-2 flex-wrap flex-1">
+            {networks.map((network) => (
+              <button
+                key={network}
+                onClick={() => setSelectedNetwork(network)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  selectedNetwork === network
+                    ? network === 'YELLO' ? 'bg-yellow-500 text-black' :
+                      network === 'TELECEL' ? 'bg-red-600 text-white' :
+                      network === 'AT_PREMIUM' ? 'bg-purple-600 text-white' :
+                      'bg-yellow-500 text-black'
+                    : isDarkMode 
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {network === 'all' ? 'All' : getNetworkName(network)}
+              </button>
+            ))}
           </div>
           
-          <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
-            <span>{filteredProducts.length} products</span>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500" /> 10min-1hr</span>
-              <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-green-500" /> Secure</span>
-            </div>
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={`px-3 py-2 rounded-lg text-sm ${
+              isDarkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-gray-100 border-gray-200 text-black'
+            } border focus:ring-2 focus:ring-yellow-500`}
+          >
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+            <option value="capacity_low">Size: Small to Large</option>
+            <option value="capacity_high">Size: Large to Small</option>
+          </select>
+        </div>
+        
+        {/* Stats */}
+        <div className={`mt-3 flex items-center justify-between text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+          <span>{filteredProducts.length} products</span>
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500" /> 10min-1hr</span>
+            <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-green-500" /> Secure</span>
           </div>
         </div>
+      </div>
 
-        {/* Notice */}
-        <div className="mb-6 p-3 bg-red-900/50 border-l-4 border-red-500 rounded-lg">
-          <p className="text-red-300 text-sm">
-            <strong>Important:</strong> Verify your phone number before purchase. Data delivered in 10min-1hr.
-          </p>
-        </div>
+      {/* Notice */}
+      <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg">
+        <p className="text-red-300 text-xs sm:text-sm">
+          <strong>⚠️ Important:</strong> Verify your phone number before purchase. Data delivered in 10min-1hr.
+        </p>
+      </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredProducts.map((product, index) => {
-            const colors = getCardColors(product.network);
-            const isSelected = selectedProductIndex === index;
-            
-            return (
-              <div key={product._id} className="flex flex-col relative">
-                {/* Badges */}
-                {!product.inStock && (
-                  <div className="absolute top-2 right-2 z-10">
-                    <span className="bg-red-600 text-white text-[10px] font-bold py-0.5 px-2 rounded-full">OUT</span>
+      {/* Products Grid - 1 PER ROW ON MOBILE, 2 ON TABLET, 3-4 ON DESKTOP */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filteredProducts.map((product, index) => {
+          const colors = getCardColors(product.network);
+          const isSelected = selectedProductIndex === index;
+          
+          return (
+            <div key={product._id} className="flex flex-col relative">
+              {/* Badges */}
+              {!product.inStock && (
+                <div className="absolute top-3 right-3 z-10">
+                  <span className="bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">OUT OF STOCK</span>
+                </div>
+              )}
+              {product.isOnSale && product.salePrice && (
+                <div className="absolute top-3 left-3 z-10">
+                  <span className="bg-green-500 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">SALE</span>
+                </div>
+              )}
+              
+              {/* Card */}
+              <div 
+                className={`${colors.card} ${colors.text} overflow-hidden shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all ${isSelected ? 'rounded-t-xl' : 'rounded-xl'}`}
+                onClick={() => handleSelectBundle(index)}
+              >
+                {/* Card Content - Horizontal on Mobile */}
+                <div className="flex sm:flex-col items-center p-4">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 sm:mb-2">
+                    {getNetworkLogo(product.network)}
                   </div>
-                )}
-                {product.isOnSale && product.salePrice && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <span className="bg-green-600 text-white text-[10px] font-bold py-0.5 px-2 rounded-full">SALE</span>
+                  <div className="ml-4 sm:ml-0 sm:text-center flex-1">
+                    <h3 className="text-2xl sm:text-3xl font-bold">{product.capacity}GB</h3>
+                    <p className={`text-xs ${product.network === 'YELLO' ? 'text-black/70' : 'text-white/70'}`}>
+                      {getNetworkName(product.network)} Bundle
+                    </p>
                   </div>
-                )}
-                
-                {/* Card */}
-                <div 
-                  className={`${colors.card} ${product.network === 'YELLO' ? 'text-black' : 'text-white'} overflow-hidden shadow-lg cursor-pointer hover:-translate-y-1 transition-transform ${isSelected ? 'rounded-t-lg' : 'rounded-lg'}`}
-                  onClick={() => handleSelectBundle(index)}
-                >
-                  <div className="flex flex-col items-center p-4">
-                    <div className="w-12 h-12 mb-2">{getNetworkLogo(product.network)}</div>
-                    <h3 className="text-xl font-bold">{product.capacity}GB</h3>
-                  </div>
-                  
-                  <div className={`grid grid-cols-2 text-white ${product.network === 'YELLO' ? 'bg-black' : 'bg-black/70'}`}>
-                    <div className="p-2 text-center border-r border-gray-700">
-                      {product.isOnSale && product.salePrice ? (
-                        <>
-                          <p className="font-bold">GH₵{product.salePrice.toFixed(2)}</p>
-                          <p className="text-[10px] line-through opacity-70">GH₵{product.sellingPrice.toFixed(2)}</p>
-                        </>
-                      ) : (
-                        <p className="font-bold">GH₵{product.sellingPrice.toFixed(2)}</p>
-                      )}
-                      <p className="text-[10px] text-gray-400">Price</p>
-                    </div>
-                    <div className="p-2 text-center">
-                      <p className="font-bold text-sm">90 Days</p>
-                      <p className="text-[10px] text-gray-400">Validity</p>
-                    </div>
+                  <div className="sm:hidden text-right">
+                    {product.isOnSale && product.salePrice ? (
+                      <>
+                        <p className="text-xl font-bold">₵{product.salePrice.toFixed(2)}</p>
+                        <p className="text-xs line-through opacity-70">₵{product.sellingPrice.toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="text-xl font-bold">₵{product.sellingPrice.toFixed(2)}</p>
+                    )}
                   </div>
                 </div>
                 
-                {/* Expanded Form */}
-                {isSelected && (
-                  <div className={`${colors.expanded} p-4 rounded-b-lg`}>
-                    {!product.inStock ? (
-                      <div className="text-center py-4">
-                        <XCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p className="font-bold">Out of Stock</p>
-                        <p className="text-xs opacity-70">Check other bundles</p>
-                      </div>
-                    ) : (
+                {/* Price Footer - Desktop Only */}
+                <div className={`hidden sm:grid grid-cols-2 ${product.network === 'YELLO' ? 'bg-black text-white' : 'bg-black/50 text-white'}`}>
+                  <div className="p-3 text-center border-r border-white/10">
+                    {product.isOnSale && product.salePrice ? (
                       <>
-                        {bundleMessages[index] && (
-                          <div className={`mb-3 p-2 rounded text-sm ${
-                            bundleMessages[index].type === 'error' ? 'bg-red-800 text-red-200' : 'bg-green-800 text-green-200'
-                          }`}>
-                            {bundleMessages[index].text}
-                          </div>
-                        )}
-                        
-                        <div className="mb-3">
-                          <label className="block text-xs font-medium text-white/80 mb-1">Your Name</label>
-                          <input
-                            type="text"
-                            placeholder="Enter name"
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            className={`w-full px-3 py-2 rounded text-sm ${
-                              product.network === 'YELLO' 
-                                ? 'bg-yellow-300 text-black placeholder-yellow-700' 
-                                : 'bg-white/90 text-black placeholder-gray-500'
-                            }`}
-                          />
-                        </div>
-                        
-                        <div className="mb-3">
-                          <label className="block text-xs font-medium text-white/80 mb-1">Phone Number</label>
-                          <input
-                            type="tel"
-                            placeholder={getPhoneNumberPlaceholder(product.network)}
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            className={`w-full px-3 py-2 rounded text-sm ${
-                              product.network === 'YELLO' 
-                                ? 'bg-yellow-300 text-black placeholder-yellow-700' 
-                                : 'bg-white/90 text-black placeholder-gray-500'
-                            }`}
-                          />
-                          <p className="text-[10px] text-white/60 mt-1">Data sent to this number</p>
-                        </div>
-                        
-                        <button
-                          onClick={() => handlePurchase(product, index)}
-                          className={`w-full py-2 ${colors.button} font-bold rounded transition-colors`}
-                        >
-                          Buy Now
-                        </button>
+                        <p className="font-bold text-lg">₵{product.salePrice.toFixed(2)}</p>
+                        <p className="text-[10px] line-through opacity-60">₵{product.sellingPrice.toFixed(2)}</p>
                       </>
+                    ) : (
+                      <p className="font-bold text-lg">₵{product.sellingPrice.toFixed(2)}</p>
                     )}
+                    <p className="text-[10px] text-gray-400">Price</p>
                   </div>
-                )}
+                  <div className="p-3 text-center">
+                    <p className="font-bold">90 Days</p>
+                    <p className="text-[10px] text-gray-400">Validity</p>
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Empty State */}
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No products found</h3>
-            <p className="text-gray-400">Try different filters</p>
-          </div>
-        )}
+              
+              {/* Expanded Form */}
+              {isSelected && (
+                <div className={`${colors.expanded} p-4 rounded-b-xl shadow-lg`}>
+                  {!product.inStock ? (
+                    <div className="text-center py-6">
+                      <XCircle className="w-12 h-12 mx-auto mb-2 opacity-50 text-white" />
+                      <p className="font-bold text-white">Out of Stock</p>
+                      <p className="text-xs text-white/70">Check back later or try other bundles</p>
+                    </div>
+                  ) : (
+                    <>
+                      {bundleMessages[index] && (
+                        <div className={`mb-3 p-2 rounded-lg text-sm flex items-center gap-2 ${
+                          bundleMessages[index].type === 'error' ? 'bg-red-800/80 text-red-200' : 'bg-green-800/80 text-green-200'
+                        }`}>
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          {bundleMessages[index].text}
+                        </div>
+                      )}
+                      
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-white/80 mb-1">Your Name</label>
+                        <input
+                          type="text"
+                          placeholder="Enter your name"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium ${
+                            product.network === 'YELLO' 
+                              ? 'bg-yellow-300 text-black placeholder-yellow-700 focus:ring-yellow-600' 
+                              : 'bg-white/90 text-black placeholder-gray-500 focus:ring-white'
+                          } focus:ring-2 focus:outline-none`}
+                        />
+                      </div>
+                      
+                      <div className="mb-4">
+                        <label className="block text-xs font-medium text-white/80 mb-1">Phone Number</label>
+                        <input
+                          type="tel"
+                          placeholder={getPhoneNumberPlaceholder(product.network)}
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium ${
+                            product.network === 'YELLO' 
+                              ? 'bg-yellow-300 text-black placeholder-yellow-700 focus:ring-yellow-600' 
+                              : 'bg-white/90 text-black placeholder-gray-500 focus:ring-white'
+                          } focus:ring-2 focus:outline-none`}
+                        />
+                        <p className="text-[10px] text-white/60 mt-1">Data will be sent to this number</p>
+                      </div>
+                      
+                      <button
+                        onClick={() => handlePurchase(product, index)}
+                        className={`w-full py-3 ${colors.button} font-bold rounded-lg transition-colors text-sm`}
+                      >
+                        Buy {product.capacity}GB for ₵{product.isOnSale && product.salePrice ? product.salePrice.toFixed(2) : product.sellingPrice.toFixed(2)}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* Empty State */}
+      {filteredProducts.length === 0 && (
+        <div className="text-center py-16">
+          <Package className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+          <h3 className="text-lg font-semibold mb-2">No products found</h3>
+          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Try different filters or search terms</p>
+          <button 
+            onClick={() => { setSelectedNetwork('all'); setSearchTerm(''); }}
+            className="mt-4 px-4 py-2 bg-yellow-500 text-black font-bold rounded-lg hover:bg-yellow-400"
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
       
       <style jsx>{`
         @keyframes slide-in {
