@@ -1,113 +1,89 @@
-// app/shop/[storeSlug]/layout.jsx
+// app/shop/[storeSlug]/page.jsx - Store Home Page
 'use client';
 import { useState, useEffect } from 'react';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
-  Store, ShoppingCart, Phone, MessageCircle, Clock, MapPin,
-  Facebook, Instagram, Twitter, Star, Menu, X, Package,
-  ChevronRight, Mail, Globe, Award, Users, Shield, Moon, Sun,
-  Search  // Add Search icon
+  Package, Zap, Shield, Clock, ChevronRight, Star,
+  Phone, MessageCircle, TrendingUp, Users, Award,
+  ArrowRight, Sparkles, Gift, Moon, Sun
 } from 'lucide-react';
+
+// Lottie for loading
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
+import loadingAnimation from '@/public/animations/loading.json';
 
 const API_BASE = '/api/proxy/v1';
 
-export default function StoreLayout({ children }) {
+// Network Logos
+const MTNLogo = ({ size = 60 }) => (
+  <svg width={size} height={size} viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="85" fill="#ffcc00" stroke="#000" strokeWidth="2"/>
+    <path d="M50 80 L80 140 L100 80 L120 140 L150 80" stroke="#000" strokeWidth="12" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    <text x="100" y="170" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="28">MTN</text>
+  </svg>
+);
+
+const TelecelLogo = ({ size = 60 }) => (
+  <svg width={size} height={size} viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="85" fill="#fff" stroke="#cc0000" strokeWidth="2"/>
+    <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="32" fill="#cc0000">TELECEL</text>
+  </svg>
+);
+
+const AirtelTigoLogo = ({ size = 60 }) => (
+  <svg width={size} height={size} viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="85" fill="#fff" stroke="#7c3aed" strokeWidth="2"/>
+    <text x="100" y="110" textAnchor="middle" fontFamily="Arial" fontWeight="bold" fontSize="28" fill="#7c3aed">AT</text>
+    <text x="100" y="140" textAnchor="middle" fontFamily="Arial" fontSize="18" fill="#7c3aed">PREMIUM</text>
+  </svg>
+);
+
+export default function StoreHomePage() {
   const params = useParams();
-  const pathname = usePathname();
+  const router = useRouter();
   const [store, setStore] = useState(null);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cart, setCart] = useState([]);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Check for dark mode preference on mount
+    fetchStoreData();
+    
     if (typeof window !== 'undefined') {
-      // Check for system preference
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      // Check for stored preference
       const storedTheme = localStorage.getItem('theme');
-      const shouldBeDark = storedTheme === 'dark' || (!storedTheme && prefersDark);
-      setIsDarkMode(shouldBeDark);
-      
-      // Apply dark class to document
-      if (shouldBeDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      // Listen for system preference changes
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e) => {
-        if (!localStorage.getItem('theme')) {
-          setIsDarkMode(e.matches);
-          if (e.matches) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-        }
-      };
-      
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+      setIsDarkMode(storedTheme !== 'light');
     }
-  }, []);
-
-  useEffect(() => {
-    fetchStore();
   }, [params.storeSlug]);
 
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileMenuOpen]);
-
-  const fetchStore = async () => {
+  const fetchStoreData = async () => {
     try {
-      const response = await fetch(`${API_BASE}/agent-stores/store/${params.storeSlug}`);
-      const data = await response.json();
+      // Fetch store info
+      const storeRes = await fetch(`${API_BASE}/agent-stores/store/${params.storeSlug}`);
+      const storeData = await storeRes.json();
       
-      if (data.status === 'success') {
-        setStore(data.data);
-        applyStoreTheme(data.data);
+      if (storeData.status === 'success') {
+        setStore(storeData.data);
+      }
+
+      // Fetch products for featured section
+      const productsRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/products`);
+      const productsData = await productsRes.json();
+      
+      if (productsData.status === 'success') {
+        // Get featured products (first 6, prioritizing in-stock and different networks)
+        const products = productsData.data?.products || [];
+        const featured = products
+          .filter(p => p.inStock)
+          .sort((a, b) => a.sellingPrice - b.sellingPrice)
+          .slice(0, 6);
+        setFeaturedProducts(featured);
       }
     } catch (error) {
-      console.error('Error fetching store:', error);
+      console.error('Error fetching store data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const applyStoreTheme = (storeData) => {
-    if (storeData.customization) {
-      const { primaryColor, secondaryColor, theme } = storeData.customization;
-      
-      // Apply theme colors to CSS variables
-      document.documentElement.style.setProperty('--primary-color', primaryColor || '#1976d2');
-      document.documentElement.style.setProperty('--secondary-color', secondaryColor || '#dc004e');
-      
-      // Apply custom CSS if provided
-      if (storeData.customization.customCSS) {
-        const styleElement = document.createElement('style');
-        styleElement.textContent = storeData.customization.customCSS;
-        document.head.appendChild(styleElement);
-      }
     }
   };
 
@@ -115,409 +91,299 @@ export default function StoreLayout({ children }) {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   };
 
-  const isStoreOpen = () => {
-    if (!store || !store.isOpen) return false;
-    
-    if (!store.autoCloseOutsideHours) return true;
-    
-    const now = new Date();
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    const currentTime = now.toTimeString().slice(0, 5);
-    
-    const todayHours = store.businessHours?.[dayName];
-    if (!todayHours || !todayHours.isOpen) return false;
-    
-    return currentTime >= todayHours.open && currentTime <= todayHours.close;
+  const getNetworkLogo = (network, size = 50) => {
+    if (network === 'YELLO') return <MTNLogo size={size} />;
+    if (network === 'TELECEL') return <TelecelLogo size={size} />;
+    if (network === 'AT_PREMIUM') return <AirtelTigoLogo size={size} />;
+    return <Package className="w-12 h-12" />;
   };
 
-  // Updated navItems with Track Order link
-  const navItems = [
-    { href: `/shop/${params.storeSlug}`, label: 'Home', icon: Store },
-    { href: `/shop/${params.storeSlug}/products`, label: 'Products', icon: Package },
-    { href: `/shop/${params.storeSlug}/orders/search`, label: 'Track Order', icon: Search }, // Added this line
-    { href: `/shop/${params.storeSlug}/about`, label: 'About', icon: Users },
-    // { href: `/shop/${params.storeSlug}/contact`, label: 'Contact', icon: Phone }
-  ];
+  const getCardColors = (network) => {
+    if (network === 'YELLO') return {
+      card: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
+      text: 'text-black',
+      subtext: 'text-black/70'
+    };
+    if (network === 'TELECEL') return {
+      card: 'bg-gradient-to-br from-red-600 to-red-700',
+      text: 'text-white',
+      subtext: 'text-white/70'
+    };
+    if (network === 'AT_PREMIUM') return {
+      card: 'bg-gradient-to-br from-purple-600 to-purple-700',
+      text: 'text-white',
+      subtext: 'text-white/70'
+    };
+    return {
+      card: 'bg-gradient-to-br from-blue-600 to-blue-700',
+      text: 'text-white',
+      subtext: 'text-white/70'
+    };
+  };
+
+  const getNetworkName = (network) => {
+    if (network === 'YELLO') return 'MTN';
+    if (network === 'TELECEL') return 'Telecel';
+    if (network === 'AT_PREMIUM') return 'AT Premium';
+    return network;
+  };
+
+  // Get unique networks from featured products
+  const availableNetworks = [...new Set(featuredProducts.map(p => p.network))];
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 transition-colors">
-        <div className="text-center px-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading store...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!store) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 transition-colors px-4">
-        <div className="text-center max-w-md">
-          <Store className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">Store Not Found</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">This store doesn't exist or has been removed.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Lottie animationData={loadingAnimation} loop autoplay style={{ width: 120, height: 120 }} />
+        <p className="text-gray-400 text-sm mt-2">Loading store...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-      {/* Top Banner - Responsive height */}
-      {store.storeBanner && (
-        <div 
-          className="h-32 sm:h-40 md:h-48 bg-cover bg-center relative"
-          style={{ backgroundImage: `url(${store.storeBanner})` }}
-        >
-          <div className="absolute inset-0 bg-black bg-opacity-40 dark:bg-opacity-60" />
+    <div className={`${isDarkMode ? 'text-white' : 'text-black'}`}>
+      {/* Hero Section */}
+      <div className={`${isDarkMode ? 'bg-gradient-to-br from-gray-800 to-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden`}>
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
         </div>
-      )}
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-5 h-5 text-yellow-500" />
+            <span className={`text-sm font-medium ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+              Fast & Reliable Data
+            </span>
+          </div>
+          
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">
+            Get Affordable Data Bundles
+          </h1>
+          
+          <p className={`text-sm sm:text-base mb-6 max-w-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            Purchase data bundles for MTN, Telecel & AirtelTigo at the best prices. 
+            Instant delivery, secure payments.
+          </p>
+          
+          {/* Quick Stats */}
+          <div className="flex flex-wrap gap-4 sm:gap-6 mb-6">
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-green-900/50' : 'bg-green-100'}`}>
+                <Zap className="w-4 h-4 text-green-500" />
+              </div>
+              <div>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Delivery</p>
+                <p className="font-semibold text-sm">10min - 1hr</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-900/50' : 'bg-blue-100'}`}>
+                <Shield className="w-4 h-4 text-blue-500" />
+              </div>
+              <div>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Payment</p>
+                <p className="font-semibold text-sm">100% Secure</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-purple-900/50' : 'bg-purple-100'}`}>
+                <Clock className="w-4 h-4 text-purple-500" />
+              </div>
+              <div>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Validity</p>
+                <p className="font-semibold text-sm">Up to 90 Days</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* CTA Button */}
+          <Link
+            href={`/shop/${params.storeSlug}/products`}
+            className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-6 rounded-xl transition-all hover:shadow-lg hover:shadow-yellow-500/30 active:scale-95"
+          >
+            Browse All Bundles
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        </div>
+      </div>
 
-      {/* Header - Sticky with responsive padding */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40 transition-colors">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-14 sm:h-16">
-            {/* Logo and Store Name - Responsive sizing */}
-            <div className="flex items-center flex-1 min-w-0">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation"
-                aria-label="Toggle menu"
+      {/* Network Quick Links */}
+      <div className="mb-6">
+        <h2 className="text-lg font-bold mb-4">Shop by Network</h2>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { network: 'YELLO', name: 'MTN', color: 'from-yellow-400 to-yellow-500', textColor: 'text-black' },
+            { network: 'TELECEL', name: 'Telecel', color: 'from-red-600 to-red-700', textColor: 'text-white' },
+            { network: 'AT_PREMIUM', name: 'AirtelTigo', color: 'from-purple-600 to-purple-700', textColor: 'text-white' }
+          ].map((item) => (
+            <Link
+              key={item.network}
+              href={`/shop/${params.storeSlug}/products?network=${item.network}`}
+              className={`bg-gradient-to-br ${item.color} ${item.textColor} rounded-xl p-4 text-center hover:shadow-lg transition-all hover:-translate-y-1 active:scale-95`}
+            >
+              <div className="flex justify-center mb-2">
+                {getNetworkLogo(item.network, 40)}
+              </div>
+              <p className="font-bold text-sm">{item.name}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Featured Products */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Featured Bundles</h2>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Best value data packages</p>
+          </div>
+          <Link
+            href={`/shop/${params.storeSlug}/products`}
+            className={`flex items-center gap-1 text-sm font-medium ${isDarkMode ? 'text-yellow-400 hover:text-yellow-300' : 'text-blue-600 hover:text-blue-700'}`}
+          >
+            See All
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {/* Products Grid - 1 per row on mobile, 2 on tablet, 3 on desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {featuredProducts.map((product) => {
+            const colors = getCardColors(product.network);
+            
+            return (
+              <Link
+                key={product._id}
+                href={`/shop/${params.storeSlug}/products?network=${product.network}`}
+                className={`${colors.card} ${colors.text} rounded-xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all`}
               >
-                {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
-              </button>
-              
-              <Link href={`/shop/${params.storeSlug}`} className="flex items-center ml-2 sm:ml-4 lg:ml-0 min-w-0">
-                {store.storeLogo ? (
-                  <img 
-                    src={store.storeLogo} 
-                    alt={store.storeName} 
-                    className="h-8 w-8 sm:h-10 sm:w-10 rounded-full mr-2 sm:mr-3 flex-shrink-0 object-cover" 
-                  />
-                ) : (
-                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
-                    <Store className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                {/* Card Content - Horizontal layout */}
+                <div className="flex items-center p-4">
+                  <div className="w-12 h-12 flex-shrink-0">
+                    {getNetworkLogo(product.network, 48)}
                   </div>
-                )}
-                <div className="min-w-0">
-                  <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate">
-                    {store.storeName}
-                  </h1>
-                  {store.verification?.isVerified && (
-                    <div className="flex items-center text-xs text-green-600 dark:text-green-400">
-                      <Shield className="w-3 h-3 mr-1 flex-shrink-0" />
-                      <span className="hidden xs:inline">Verified Store</span>
-                      <span className="xs:hidden">Verified</span>
-                    </div>
-                  )}
+                  <div className="ml-4 flex-1">
+                    <h3 className="text-2xl font-bold">{product.capacity}GB</h3>
+                    <p className={`text-xs ${colors.subtext}`}>
+                      {getNetworkName(product.network)} Bundle
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {product.isOnSale && product.salePrice ? (
+                      <>
+                        <p className="text-xl font-bold">₵{product.salePrice.toFixed(2)}</p>
+                        <p className="text-xs line-through opacity-70">₵{product.sellingPrice.toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="text-xl font-bold">₵{product.sellingPrice.toFixed(2)}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Footer */}
+                <div className={`px-4 py-2 ${product.network === 'YELLO' ? 'bg-black/20' : 'bg-black/30'} flex items-center justify-between`}>
+                  <span className="text-xs opacity-80">90 Days Validity</span>
+                  <span className="text-xs font-medium flex items-center gap-1">
+                    Buy Now <ChevronRight className="w-3 h-3" />
+                  </span>
                 </div>
               </Link>
-            </div>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex space-x-4 xl:space-x-8">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      isActive 
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' 
-                        : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Store Status, Dark Mode & Cart - Responsive */}
-            <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
-              {/* Store Status - Hidden on very small screens */}
-              <div className={`hidden sm:block px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                isStoreOpen() 
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
-                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-              }`}>
-                {isStoreOpen() ? 'Open' : 'Closed'}
-              </div>
-              
-              {/* Rating - Hidden on mobile */}
-              {store.metrics?.rating > 0 && (
-                <div className="hidden md:flex items-center text-sm">
-                  <Star className="w-4 h-4 text-yellow-500 mr-1" />
-                  <span className="font-medium text-gray-900 dark:text-white">{store.metrics.rating.toFixed(1)}</span>
-                  <span className="text-gray-500 dark:text-gray-400 ml-1">({store.metrics.totalReviews})</span>
-                </div>
-              )}
-              
-              {/* Dark Mode Toggle */}
-              <button 
-                onClick={toggleDarkMode}
-                className="p-1.5 sm:p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors touch-manipulation"
-                aria-label="Toggle dark mode"
-              >
-                {isDarkMode ? <Sun className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5" />}
-              </button>
-              
-              {/* Cart Button */}
-              <button className="relative p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors touch-manipulation">
-                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
-                {cart.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs">
-                    {cart.length}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Mobile Menu - Full height overlay */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-14 sm:top-16 z-50 bg-white dark:bg-gray-800">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {/* Mobile Store Status */}
-              <div className="sm:hidden px-3 py-2">
-                <div className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                  isStoreOpen() 
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-                }`}>
-                  Store {isStoreOpen() ? 'Open' : 'Closed'}
-                </div>
+        {/* See All Products Button */}
+        <div className="mt-6 text-center">
+          <Link
+            href={`/shop/${params.storeSlug}/products`}
+            className={`inline-flex items-center gap-2 py-3 px-8 rounded-xl font-bold transition-all active:scale-95 ${
+              isDarkMode 
+                ? 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700' 
+                : 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 shadow-sm'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            See All Products
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Why Choose Us */}
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 mb-6`}>
+        <h2 className="text-lg font-bold mb-4 text-center">Why Choose Us?</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { icon: Zap, title: 'Fast Delivery', desc: '10min - 1 hour', color: 'text-yellow-500' },
+            { icon: Shield, title: 'Secure', desc: '100% Safe', color: 'text-green-500' },
+            { icon: Award, title: 'Best Prices', desc: 'Guaranteed', color: 'text-blue-500' },
+            { icon: Users, title: 'Support', desc: '24/7 Help', color: 'text-purple-500' }
+          ].map((item, idx) => (
+            <div key={idx} className="text-center">
+              <div className={`w-12 h-12 mx-auto mb-2 rounded-xl ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} flex items-center justify-center`}>
+                <item.icon className={`w-6 h-6 ${item.color}`} />
               </div>
+              <h3 className="font-semibold text-sm">{item.title}</h3>
+              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
-              {/* Mobile Rating */}
-              {store.metrics?.rating > 0 && (
-                <div className="md:hidden px-3 py-2">
-                  <div className="flex items-center text-sm">
-                    <Star className="w-4 h-4 text-yellow-500 mr-1" />
-                    <span className="font-medium text-gray-900 dark:text-white">{store.metrics.rating.toFixed(1)}</span>
-                    <span className="text-gray-500 dark:text-gray-400 ml-1">({store.metrics.totalReviews} reviews)</span>
-                  </div>
-                </div>
-              )}
-
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-3 py-3 rounded-md text-base font-medium transition-colors touch-manipulation ${
-                      isActive 
-                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' 
-                        : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 mr-3" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-
-              {/* Mobile Contact Info */}
-              <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
-                <div className="px-3 space-y-3">
-                  {store.contactInfo?.phoneNumber && (
-                    <a 
-                      href={`tel:${store.contactInfo.phoneNumber}`}
-                      className="flex items-center text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                    >
-                      <Phone className="w-5 h-5 mr-3" />
-                      Call Us
-                    </a>
-                  )}
-                  {store.contactInfo?.whatsappNumber && (
-                    <a 
-                      href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
-                      className="flex items-center text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
-                    >
-                      <MessageCircle className="w-5 h-5 mr-3" />
-                      WhatsApp
-                    </a>
-                  )}
-                </div>
+      {/* How It Works */}
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 mb-6`}>
+        <h2 className="text-lg font-bold mb-4">How It Works</h2>
+        <div className="space-y-4">
+          {[
+            { step: '1', title: 'Select Bundle', desc: 'Choose your preferred network and data size' },
+            { step: '2', title: 'Enter Number', desc: 'Provide the phone number to receive data' },
+            { step: '3', title: 'Pay Securely', desc: 'Complete payment via Mobile Money' },
+            { step: '4', title: 'Receive Data', desc: 'Data is delivered within 10min - 1 hour' }
+          ].map((item, idx) => (
+            <div key={idx} className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-yellow-500 text-black font-bold flex items-center justify-center flex-shrink-0">
+                {item.step}
+              </div>
+              <div>
+                <h3 className="font-semibold">{item.title}</h3>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.desc}</p>
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Contact CTA */}
+      <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl p-6 text-black">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold mb-1">Need Help?</h2>
+            <p className="text-sm text-black/70">Contact us for any questions or support</p>
           </div>
-        )}
-      </header>
-
-      {/* Main Content - Responsive padding */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-        {children}
-      </main>
-
-      {/* Footer - Responsive grid and padding */}
-      <footer className="bg-gray-900 dark:bg-black text-white mt-8 sm:mt-12 md:mt-16 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {/* Store Info */}
-            <div className="sm:col-span-2 lg:col-span-1">
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">{store.storeName}</h3>
-              <p className="text-gray-400 dark:text-gray-500 text-xs sm:text-sm mb-4 line-clamp-3">
-                {store.storeDescription}
-              </p>
-              {store.marketing?.referralCode && (
-                <div className="bg-gray-800 dark:bg-gray-900 rounded-lg p-2 sm:p-3 border border-gray-700 dark:border-gray-800">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Referral Code</p>
-                  <p className="font-mono font-bold text-sm sm:text-base text-white">{store.marketing.referralCode}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                {navItems.map((item) => (
-                  <li key={item.href}>
-                    <Link 
-                      href={item.href}
-                      className="text-gray-400 dark:text-gray-500 hover:text-white dark:hover:text-gray-300 text-xs sm:text-sm transition-colors"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Contact Info */}
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Contact Us</h3>
-              <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
-                {store.contactInfo?.phoneNumber && (
-                  <a 
-                    href={`tel:${store.contactInfo.phoneNumber}`}
-                    className="flex items-center text-gray-400 dark:text-gray-500 hover:text-white transition-colors"
-                  >
-                    <Phone className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                    <span className="truncate">{store.contactInfo.phoneNumber}</span>
-                  </a>
-                )}
-                {store.contactInfo?.whatsappNumber && (
-                  <a 
-                    href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
-                    className="flex items-center text-gray-400 dark:text-gray-500 hover:text-green-400 dark:hover:text-green-500 transition-colors"
-                  >
-                    <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                    WhatsApp
-                  </a>
-                )}
-                {store.contactInfo?.email && (
-                  <a 
-                    href={`mailto:${store.contactInfo.email}`}
-                    className="flex items-center text-gray-400 dark:text-gray-500 hover:text-white transition-colors"
-                  >
-                    <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0" />
-                    <span className="truncate text-xs sm:text-sm">{store.contactInfo.email}</span>
-                  </a>
-                )}
-                {store.contactInfo?.address?.city && (
-                  <div className="flex items-start text-gray-400 dark:text-gray-500">
-                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-2 flex-shrink-0 mt-0.5" />
-                    <span className="text-xs sm:text-sm">
-                      {store.contactInfo.address.city}, {store.contactInfo.address.region}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Business Hours */}
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Business Hours</h3>
-              <div className="space-y-1 text-xs sm:text-sm">
-                {Object.entries(store.businessHours || {}).slice(0, 7).map(([day, hours]) => (
-                  <div key={day} className="flex justify-between text-gray-400 dark:text-gray-500">
-                    <span className="capitalize">{day.slice(0, 3)}:</span>
-                    <span className="text-right">
-                      {hours.isOpen ? `${hours.open} - ${hours.close}` : 'Closed'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Social Media - Responsive spacing */}
-          {store.socialMedia && Object.values(store.socialMedia).some(v => v) && (
-            <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 dark:border-gray-900">
-              <div className="flex justify-center space-x-4 sm:space-x-6">
-                {store.socialMedia.facebook && (
-                  <a 
-                    href={store.socialMedia.facebook} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors touch-manipulation"
-                    aria-label="Facebook"
-                  >
-                    <Facebook className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </a>
-                )}
-                {store.socialMedia.instagram && (
-                  <a 
-                    href={store.socialMedia.instagram} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-pink-500 dark:hover:text-pink-400 transition-colors touch-manipulation"
-                    aria-label="Instagram"
-                  >
-                    <Instagram className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </a>
-                )}
-                {store.socialMedia.twitter && (
-                  <a 
-                    href={store.socialMedia.twitter} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-400 dark:hover:text-blue-300 transition-colors touch-manipulation"
-                    aria-label="Twitter"
-                  >
-                    <Twitter className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </a>
-                )}
-                {store.whatsappSettings?.groupLink && (
-                  <a 
-                    href={store.whatsappSettings.groupLink} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-green-400 transition-colors touch-manipulation"
-                    aria-label="WhatsApp Group"
-                  >
-                    <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Copyright - Responsive text */}
-          <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-gray-800 dark:border-gray-900 text-center text-xs sm:text-sm text-gray-400 dark:text-gray-500">
-            <p>© {new Date().getFullYear()} {store.storeName}. All rights reserved.</p>
-            {/* <p className="mt-2">Powered by DataMart</p> */}
+          <div className="flex gap-3">
+            <a
+              href={`tel:${store?.contactInfo?.phoneNumber || ''}`}
+              className="flex items-center gap-2 bg-black text-yellow-400 py-2 px-4 rounded-lg font-medium hover:bg-gray-900 transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              Call Us
+            </a>
+            <a
+              href={`https://wa.me/${store?.contactInfo?.whatsappNumber?.replace(/\D/g, '') || ''}`}
+              className="flex items-center gap-2 bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp
+            </a>
           </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }
