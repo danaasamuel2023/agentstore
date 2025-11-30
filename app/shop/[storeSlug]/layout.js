@@ -1,16 +1,46 @@
-// app/shop/[storeSlug]/layout.jsx
+// app/shop/[storeSlug]/layout.jsx - WITH PROXY API
 import { Metadata } from 'next';
 
-const API_BASE = 'https://api.datamartgh.shop/api/v1';
+// For server-side metadata generation, we need to use the direct API
+// because the proxy is a client-side route. However, server components
+// don't have CORS issues, so direct API works here.
+// But if you want consistency, you can use an internal fetch.
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.datamartgh.shop/api/v1';
+
+// Helper function to fetch store data
+async function getStoreData(storeSlug) {
+  try {
+    // For server-side fetching, we can use the direct API (no CORS in server components)
+    // Or use absolute URL to your own API proxy
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.cheapdata.shop';
+    
+    // Try proxy first (works in production), fallback to direct API
+    let response;
+    try {
+      response = await fetch(`${baseUrl}/api/proxy/v1/agent-stores/store/${storeSlug}`, {
+        next: { revalidate: 3600 }
+      });
+    } catch {
+      // Fallback to direct API for server-side (no CORS issues)
+      response = await fetch(`${API_BASE}/agent-stores/store/${storeSlug}`, {
+        next: { revalidate: 3600 }
+      });
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching store data:', error);
+    return null;
+  }
+}
 
 export async function generateMetadata({ params }) {
   try {
-    const response = await fetch(`${API_BASE}/agent-stores/store/${params.storeSlug}`, {
-      next: { revalidate: 3600 } // Cache for 1 hour
-    });
-    const data = await response.json();
+    const data = await getStoreData(params.storeSlug);
     
-    if (data.status === 'success' && data.data) {
+    if (data?.status === 'success' && data.data) {
       const store = data.data;
       const title = `${store.storeName} - Buy Affordable Data Bundles | MTN, Telecel, AirtelTigo Ghana`;
       const description = store.storeDescription || 
@@ -69,7 +99,7 @@ export async function generateMetadata({ params }) {
           creator: '@cheapdatashop',
         },
         
-        // Additional Meta
+        // Robots
         robots: {
           index: true,
           follow: true,
