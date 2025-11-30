@@ -322,83 +322,118 @@ function PaymentModal({
   );
 }
 
-// ===== PRODUCT CARD =====
+// ===== PRODUCT CARD - Network Colored Design =====
 function ProductCard({ product, storeSlug, isDarkMode, customColors }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  
-  const formatCurrency = (amount) => `GH₵ ${(amount || 0).toFixed(2)}`;
-  
-  const getNetworkColor = (network) => {
-    switch(network) {
-      case 'YELLO': return 'from-yellow-400 to-yellow-600';
-      case 'TELECEL': return 'from-red-400 to-red-600';
-      case 'AT_PREMIUM': return 'from-purple-400 to-purple-600';
-      default: return 'from-blue-400 to-blue-600';
-    }
-  };
   
   const getNetworkName = (network) => {
     if (network === 'YELLO') return 'MTN';
     if (network === 'TELECEL') return 'Telecel';
-    return 'AirtelTigo';
+    if (network === 'AT_PREMIUM') return 'AT Premium';
+    return network;
   };
+  
+  const getCardColors = (network) => {
+    if (network === 'YELLO') return {
+      card: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
+      text: 'text-black',
+      subtext: 'text-black/70',
+      button: 'bg-black hover:bg-gray-900 text-yellow-400',
+      footer: 'bg-black text-white'
+    };
+    if (network === 'TELECEL') return {
+      card: 'bg-gradient-to-br from-red-600 to-red-700',
+      text: 'text-white',
+      subtext: 'text-white/70',
+      button: 'bg-red-900 hover:bg-red-800 text-white',
+      footer: 'bg-black/50 text-white'
+    };
+    if (network === 'AT_PREMIUM') return {
+      card: 'bg-gradient-to-br from-purple-600 to-purple-700',
+      text: 'text-white',
+      subtext: 'text-white/70',
+      button: 'bg-purple-900 hover:bg-purple-800 text-white',
+      footer: 'bg-black/50 text-white'
+    };
+    return {
+      card: 'bg-gradient-to-br from-blue-600 to-blue-700',
+      text: 'text-white',
+      subtext: 'text-white/70',
+      button: 'bg-blue-900 hover:bg-blue-800 text-white',
+      footer: 'bg-black/50 text-white'
+    };
+  };
+  
+  const getNetworkLogo = (network) => {
+    if (network === 'YELLO') return <MTNLogo />;
+    if (network === 'TELECEL') return <TelecelLogo />;
+    if (network === 'AT_PREMIUM') return <AirtelTigoLogo />;
+    return <Package className="w-12 h-12" />;
+  };
+  
+  const colors = getCardColors(product.network);
   
   return (
     <>
-      <article className="group bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-        {/* Sale Badge */}
-        {product.isOnSale && (
-          <div className="absolute top-2 left-2 z-10">
-            <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-              <Sparkles className="w-3 h-3 mr-1" /> SALE
-            </span>
+      <article className="relative group">
+        {/* Badges */}
+        {product.inStock === false && (
+          <div className="absolute top-3 right-3 z-10">
+            <span className="bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">OUT OF STOCK</span>
+          </div>
+        )}
+        {product.isOnSale && product.salePrice && product.inStock !== false && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="bg-green-500 text-white text-[10px] font-bold py-1 px-2 rounded-full shadow-lg">SALE</span>
           </div>
         )}
         
-        {/* Network Banner */}
-        <div className={`h-1 bg-gradient-to-r ${getNetworkColor(product.network)}`}></div>
-        
-        <div className="p-4">
-          {/* Network & Capacity */}
-          <div className="mb-3">
-            <span className={`inline-block px-2 py-1 bg-gradient-to-r ${getNetworkColor(product.network)} text-white text-xs font-bold rounded-full mb-2`}>
-              {getNetworkName(product.network)}
-            </span>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{product.capacity}GB</h3>
+        {/* Card */}
+        <div 
+          className={`${colors.card} ${colors.text} rounded-xl overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer`}
+          onClick={() => product.inStock !== false && setShowPaymentModal(true)}
+        >
+          {/* Card Content - Horizontal on Mobile */}
+          <div className="flex sm:flex-col items-center p-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 sm:mb-2">
+              {getNetworkLogo(product.network)}
+            </div>
+            <div className="ml-4 sm:ml-0 sm:text-center flex-1">
+              <h3 className="text-2xl sm:text-3xl font-bold">{product.capacity}GB</h3>
+              <p className={`text-xs ${colors.subtext}`}>
+                {getNetworkName(product.network)} Bundle
+              </p>
+            </div>
+            <div className="sm:hidden text-right">
+              {product.isOnSale && product.salePrice ? (
+                <>
+                  <p className="text-xl font-bold">₵{product.salePrice.toFixed(2)}</p>
+                  <p className="text-xs line-through opacity-70">₵{product.sellingPrice.toFixed(2)}</p>
+                </>
+              ) : (
+                <p className="text-xl font-bold">₵{product.sellingPrice.toFixed(2)}</p>
+              )}
+            </div>
           </div>
           
-          {/* Price */}
-          <div className="mb-3">
-            {product.isOnSale && product.salePrice ? (
-              <div>
-                <span className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(product.salePrice)}</span>
-                <span className="text-sm text-gray-500 line-through ml-2">{formatCurrency(product.sellingPrice)}</span>
-              </div>
-            ) : (
-              <span className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(product.sellingPrice)}</span>
-            )}
+          {/* Price Footer - Desktop Only */}
+          <div className={`hidden sm:grid grid-cols-2 ${colors.footer}`}>
+            <div className="p-3 text-center border-r border-white/10">
+              {product.isOnSale && product.salePrice ? (
+                <>
+                  <p className="font-bold text-lg">₵{product.salePrice.toFixed(2)}</p>
+                  <p className="text-[10px] line-through opacity-60">₵{product.sellingPrice.toFixed(2)}</p>
+                </>
+              ) : (
+                <p className="font-bold text-lg">₵{product.sellingPrice.toFixed(2)}</p>
+              )}
+              <p className="text-[10px] text-gray-400">Price</p>
+            </div>
+            <div className="p-3 text-center">
+              <p className="font-bold">90 Days</p>
+              <p className="text-[10px] text-gray-400">Validity</p>
+            </div>
           </div>
-          
-          {/* Features */}
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> 90 days</span>
-            <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> Fast</span>
-            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Safe</span>
-          </div>
-          
-          {/* Buy Button */}
-          <button 
-            onClick={() => product.inStock !== false && setShowPaymentModal(true)}
-            disabled={product.inStock === false}
-            className="w-full py-3 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: product.inStock === false ? '#999' : `linear-gradient(135deg, ${customColors.primary}, ${customColors.secondary})` }}
-          >
-            {product.inStock === false ? (
-              <><X className="w-4 h-4 inline mr-2" /> Out of Stock</>
-            ) : (
-              <><ShoppingBag className="w-4 h-4 inline mr-2" /> Buy Now</>
-            )}
-          </button>
         </div>
       </article>
       
@@ -582,9 +617,12 @@ export default function StorePage() {
             <p className="text-white/80 text-sm mb-4">⚡ 30-60min delivery • 💰 Best prices • 🌐 All networks</p>
             
             <div className="flex gap-3">
-              <a href="#products" className="inline-flex items-center px-5 py-2 bg-white text-gray-900 font-bold rounded-full text-sm">
+              <Link 
+                href={`/shop/${params.storeSlug}/products`}
+                className="inline-flex items-center px-5 py-2 bg-white text-gray-900 font-bold rounded-full text-sm"
+              >
                 <ShoppingBag className="w-4 h-4 mr-2" /> Shop Now
-              </a>
+              </Link>
               {store?.contactInfo?.whatsappNumber && (
                 <a 
                   href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
@@ -605,19 +643,23 @@ export default function StorePage() {
           
           <div className="grid grid-cols-3 gap-3">
             {[
-              { network: 'YELLO', name: 'MTN', logo: <MTNLogo />, color: 'from-yellow-400 to-yellow-600' },
-              { network: 'TELECEL', name: 'Telecel', logo: <TelecelLogo />, color: 'from-red-400 to-red-600' },
-              { network: 'AT_PREMIUM', name: 'AirtelTigo', logo: <AirtelTigoLogo />, color: 'from-purple-400 to-purple-600' },
-            ].map(({ network, name, logo, color }) => {
+              { network: 'YELLO', name: 'MTN', logo: <MTNLogo />, color: 'from-yellow-400 to-yellow-500', textColor: 'text-black' },
+              { network: 'TELECEL', name: 'Telecel', logo: <TelecelLogo />, color: 'from-red-600 to-red-700', textColor: 'text-white' },
+              { network: 'AT_PREMIUM', name: 'AirtelTigo', logo: <AirtelTigoLogo />, color: 'from-purple-600 to-purple-700', textColor: 'text-white' },
+            ].map(({ network, name, logo, color, textColor }) => {
               const count = products.filter(p => p.network === network).length;
               if (count === 0) return null;
               
               return (
-                <div key={network} className={`bg-gradient-to-br ${color} p-4 rounded-xl text-white`}>
+                <Link 
+                  key={network} 
+                  href={`/shop/${params.storeSlug}/products?network=${network}`}
+                  className={`bg-gradient-to-br ${color} ${textColor} p-4 rounded-xl hover:shadow-lg transition-all hover:-translate-y-1`}
+                >
                   <div className="transform scale-75 origin-left">{logo}</div>
                   <h3 className="font-bold text-lg">{name}</h3>
-                  <p className="text-white/80 text-xs">{count} bundles</p>
-                </div>
+                  <p className={`${textColor === 'text-black' ? 'text-black/70' : 'text-white/80'} text-xs`}>{count} bundles</p>
+                </Link>
               );
             })}
           </div>
@@ -626,10 +668,18 @@ export default function StorePage() {
         {/* Featured Products */}
         {featuredProducts.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-yellow-500" /> Hot Deals
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-500" /> Hot Deals
+              </h2>
+              <Link 
+                href={`/shop/${params.storeSlug}/products`}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1"
+              >
+                See All <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {featuredProducts.map((product) => (
                 <ProductCard 
                   key={product._id} 
@@ -646,9 +696,17 @@ export default function StorePage() {
         {/* All Products */}
         {products.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">All Products</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {products.map((product) => (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">All Products</h2>
+              <Link 
+                href={`/shop/${params.storeSlug}/products`}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1"
+              >
+                See All <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {products.slice(0, 8).map((product) => (
                 <ProductCard 
                   key={product._id} 
                   product={product} 
@@ -658,6 +716,20 @@ export default function StorePage() {
                 />
               ))}
             </div>
+            
+            {/* See All Products Button */}
+            {products.length > 8 && (
+              <div className="mt-6 text-center">
+                <Link
+                  href={`/shop/${params.storeSlug}/products`}
+                  className="inline-flex items-center gap-2 py-3 px-8 rounded-xl font-bold transition-all bg-yellow-500 hover:bg-yellow-400 text-black"
+                >
+                  <Package className="w-5 h-5" />
+                  See All {products.length} Products
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
+            )}
           </section>
         )}
 
