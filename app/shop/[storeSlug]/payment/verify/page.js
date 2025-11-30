@@ -45,7 +45,7 @@ export default function PaymentVerifyPage() {
   // Verify payment using PROXY
   const verifyPayment = async () => {
     try {
-      const reference = searchParams.get('reference') || searchParams.get('trxref');
+      let reference = searchParams.get('reference') || searchParams.get('trxref');
       
       if (!reference) {
         setVerificationStatus('error');
@@ -53,12 +53,23 @@ export default function PaymentVerifyPage() {
         return;
       }
 
+      // Clean the reference - remove any trailing colons or extra characters
+      reference = reference.split(':')[0].trim();
+
+      console.log('[Payment Verify] Store slug:', params.storeSlug);
+      console.log('[Payment Verify] Verifying reference:', reference);
+      console.log('[Payment Verify] Full URL:', `${API_BASE}/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${reference}`);
+
       const response = await fetch(
         `${API_BASE}/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${reference}`,
         { headers: { 'Accept': 'application/json' } }
       );
 
+      console.log('[Payment Verify] Response status:', response.status);
+
       const data = await response.json();
+
+      console.log('[Payment Verify] Response data:', data);
 
       if (data.status === 'success') {
         setVerificationStatus('success');
