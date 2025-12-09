@@ -1,11 +1,10 @@
-// app/shop/[storeSlug]/products/page.jsx - WITH PROXY API & 1 PRODUCT PER ROW ON MOBILE
+// app/shop/[storeSlug]/products/page.jsx - WITH SIMPLE CONFIRMATION MODAL
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
-  Filter, Search, ShoppingCart, Star, Info, X,
-  ChevronDown, Package, Zap, Shield, Moon, Sun, AlertCircle, XCircle
+  Search, Package, Zap, Shield, Moon, Sun, AlertCircle, XCircle
 } from 'lucide-react';
 
 // Lottie for loading
@@ -63,6 +62,99 @@ const LoadingOverlay = ({ isLoading, network }) => {
   );
 };
 
+// ✅ Simple Confirmation Modal
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProcessing }) => {
+  if (!isOpen || !product) return null;
+  
+  const getNetworkName = (network) => {
+    if (network === 'YELLO') return 'MTN';
+    if (network === 'TELECEL') return 'Telecel';
+    if (network === 'AT_PREMIUM') return 'AirtelTigo';
+    return network;
+  };
+  
+  const getNetworkColor = (network) => {
+    if (network === 'YELLO') return { bg: 'from-yellow-400 to-yellow-500', text: 'text-black', btn: 'bg-yellow-500 hover:bg-yellow-400 text-black' };
+    if (network === 'TELECEL') return { bg: 'from-red-500 to-red-600', text: 'text-white', btn: 'bg-red-500 hover:bg-red-400 text-white' };
+    if (network === 'AT_PREMIUM') return { bg: 'from-purple-500 to-purple-600', text: 'text-white', btn: 'bg-purple-500 hover:bg-purple-400 text-white' };
+    return { bg: 'from-blue-500 to-blue-600', text: 'text-white', btn: 'bg-blue-500 hover:bg-blue-400 text-white' };
+  };
+  
+  const colors = getNetworkColor(product?.network);
+  const price = product?.isOnSale && product?.salePrice ? product.salePrice : product?.sellingPrice;
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-gray-900 rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl animate-modal-pop">
+        
+        {/* Header */}
+        <div className={`bg-gradient-to-r ${colors.bg} ${colors.text} p-5 text-center`}>
+          <div className="w-16 h-16 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold">Are you sure?</h2>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 text-center">
+          <p className="text-gray-400 mb-4">We're sending data to this number:</p>
+          
+          {/* Phone Number - Big and Bold */}
+          <div className="bg-gray-800 rounded-xl p-5 mb-4">
+            <p className="text-3xl font-bold text-white tracking-wider mb-2">{phoneNumber}</p>
+            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${colors.btn}`}>
+              {product?.capacity}GB {getNetworkName(product?.network)}
+            </span>
+          </div>
+          
+          {/* Warning */}
+          <p className="text-amber-400 text-sm mb-6">
+            ⚠️ Data cannot be reversed once sent!
+          </p>
+          
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isProcessing}
+              className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition-all disabled:opacity-50"
+            >
+              No, Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isProcessing}
+              className={`flex-1 py-3 ${colors.btn} font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2`}
+            >
+              {isProcessing ? (
+                <>
+                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Wait...
+                </>
+              ) : (
+                `Yes, Pay ₵${price?.toFixed(2)}`
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <style jsx>{`
+        @keyframes modal-pop {
+          0% { opacity: 0; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-modal-pop { animation: modal-pop 0.2s ease-out; }
+      `}</style>
+    </div>
+  );
+};
+
 // Network Logos
 const MTNLogo = () => (
   <svg width="60" height="60" viewBox="0 0 200 200">
@@ -104,6 +196,10 @@ export default function ProductsPage() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [bundleMessages, setBundleMessages] = useState({});
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  
+  // Confirmation modal state
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -118,7 +214,6 @@ export default function ProductsPage() {
     filterAndSortProducts();
   }, [products, selectedNetwork, sortBy, searchTerm]);
 
-  // Fetch products using PROXY
   const fetchProducts = async () => {
     try {
       const response = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/products`);
@@ -197,8 +292,8 @@ export default function ProductsPage() {
     return `customer_${clean}@datamartgh.shop`;
   };
 
-  // Handle purchase using PROXY
-  const handlePurchase = async (product, index) => {
+  // Show confirmation modal
+  const handleShowConfirmation = (product, index) => {
     setBundleMessages(prev => ({ ...prev, [index]: null }));
     
     if (!product.inStock) {
@@ -216,6 +311,17 @@ export default function ProductsPage() {
       setBundleMessages(prev => ({ ...prev, [index]: { text: 'Please enter your name', type: 'error' } }));
       return;
     }
+    
+    // Show confirmation modal
+    setConfirmationData({ product, index });
+    setShowConfirmation(true);
+  };
+
+  // Handle confirmed purchase
+  const handleConfirmedPurchase = async () => {
+    if (!confirmationData) return;
+    
+    const { product } = confirmationData;
     
     setIsProcessing(true);
     setProcessingNetwork(product.network);
@@ -239,9 +345,11 @@ export default function ProductsPage() {
         showToast(`${product.capacity}GB bundle initiated!`, 'success');
         window.location.href = data.data.authorizationUrl;
       } else {
+        setShowConfirmation(false);
         showToast(data.message || 'Failed to initialize payment', 'error');
       }
     } catch (error) {
+      setShowConfirmation(false);
       showToast('Error: ' + error.message, 'error');
     } finally {
       setIsProcessing(false);
@@ -292,7 +400,6 @@ export default function ProductsPage() {
 
   const networks = ['all', ...new Set(products.map(p => p.network))];
 
-  // Loading with Lottie
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -308,7 +415,17 @@ export default function ProductsPage() {
       {toast.visible && <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, visible: false }))} />}
       
       {/* Loading Overlay */}
-      <LoadingOverlay isLoading={isProcessing} network={processingNetwork} />
+      <LoadingOverlay isLoading={isProcessing && !showConfirmation} network={processingNetwork} />
+      
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmedPurchase}
+        product={confirmationData?.product}
+        phoneNumber={phoneNumber}
+        isProcessing={isProcessing}
+      />
       
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
@@ -400,7 +517,7 @@ export default function ProductsPage() {
         </p>
       </div>
 
-      {/* Products Grid - 1 PER ROW ON MOBILE, 2 ON TABLET, 3-4 ON DESKTOP */}
+      {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredProducts.map((product, index) => {
           const colors = getCardColors(product.network);
@@ -425,7 +542,7 @@ export default function ProductsPage() {
                 className={`${colors.card} ${colors.text} overflow-hidden shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all ${isSelected ? 'rounded-t-xl' : 'rounded-xl'}`}
                 onClick={() => handleSelectBundle(index)}
               >
-                {/* Card Content - Horizontal on Mobile */}
+                {/* Card Content */}
                 <div className="flex sm:flex-col items-center p-4">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 sm:mb-2">
                     {getNetworkLogo(product.network)}
@@ -520,7 +637,7 @@ export default function ProductsPage() {
                       </div>
                       
                       <button
-                        onClick={() => handlePurchase(product, index)}
+                        onClick={() => handleShowConfirmation(product, index)}
                         className={`w-full py-3 ${colors.button} font-bold rounded-lg transition-colors text-sm`}
                       >
                         Buy {product.capacity}GB for ₵{product.isOnSale && product.salePrice ? product.salePrice.toFixed(2) : product.sellingPrice.toFixed(2)}
