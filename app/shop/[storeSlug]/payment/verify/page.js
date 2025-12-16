@@ -18,7 +18,7 @@ import successAnimation from '@/public/animations/payment-success.json';
 import errorAnimation from '@/public/animations/warning.json';
 
 // API Base - Using Proxy to prevent CORS
-const API_BASE = '/api/proxy';
+const API_BASE = 'https://api.datamartgh.shop/api';
 
 export default function PaymentVerifyPage() {
   const params = useParams();

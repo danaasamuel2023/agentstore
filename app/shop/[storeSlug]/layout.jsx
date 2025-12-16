@@ -9,7 +9,7 @@ import {
   ChevronRight, Mail, Shield, Moon, Sun, Search, Home, Info
 } from 'lucide-react';
 
-const API_BASE = '/api/proxy/v1';
+const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 // Compact Network Icons
 const MTNIcon = ({ size = 20 }) => (

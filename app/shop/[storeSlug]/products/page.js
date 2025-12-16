@@ -12,7 +12,7 @@ const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 import loadingAnimation from '@/public/animations/loading.json';
 
 // API Base - Using Proxy to prevent CORS
-const API_BASE = '/api/proxy/v1';
+const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 // Toast Component
 const Toast = ({ message, type, onClose }) => {
