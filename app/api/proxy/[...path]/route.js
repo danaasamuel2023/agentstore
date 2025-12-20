@@ -51,7 +51,7 @@ async function proxyRequest(request, path) {
       const data = await response.json();
       return NextResponse.json(data, { status: response.status });
     } else {
-      // For non-JSON responses (like file downloads), return as-is
+      // For non-JSON responses (like file downloads), return as-isd
       const blob = await response.blob();
       return new NextResponse(blob, {
         status: response.status,
