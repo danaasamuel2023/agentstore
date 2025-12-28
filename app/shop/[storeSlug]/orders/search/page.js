@@ -1,12 +1,12 @@
-// app/shop/[storeSlug]/orders/search/page.jsx - WITH PROXY API
+// app/shop/[storeSlug]/orders/search/page.jsx - Updated with Public Track API
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
   Search, Package, CheckCircle, Clock, XCircle, AlertCircle,
-  Phone, Mail, Calendar, CreditCard, Loader, Moon, Sun,
-  ArrowLeft, RefreshCw, Copy, Check
+  Phone, Hash, Calendar, Loader2, Moon, Sun,
+  ArrowLeft, RefreshCw, Copy, MapPin, MessageCircle, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -14,8 +14,9 @@ import Link from 'next/link';
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 import loadingAnimation from '@/public/animations/loading.json';
 
-// API Base - Using Proxy to prevent CORS
-const API_BASE = '/api/proxy/v1';
+// API Base
+const API_BASE = 'https://api.datamartgh.shop/api';
+const WHATSAPP_CHANNEL = 'https://whatsapp.com/channel/0029Vb6zDvaGzzKTwCWszC1Z';
 
 // Toast Component
 const Toast = ({ message, type, onClose }) => {
@@ -63,127 +64,181 @@ const AirtelTigoLogo = ({ size = 40 }) => (
   </svg>
 );
 
-// Status Badge
+// Status Badge with better visuals
 const StatusBadge = ({ status }) => {
   const config = {
-    completed: { icon: CheckCircle, text: 'Completed', bg: 'bg-green-900/50', color: 'text-green-400' },
-    pending: { icon: Clock, text: 'Pending', bg: 'bg-yellow-900/50', color: 'text-yellow-400' },
-    processing: { icon: Loader, text: 'Processing', bg: 'bg-blue-900/50', color: 'text-blue-400' },
-    failed: { icon: XCircle, text: 'Failed', bg: 'bg-red-900/50', color: 'text-red-400' },
-    refunded: { icon: RefreshCw, text: 'Refunded', bg: 'bg-purple-900/50', color: 'text-purple-400' }
+    completed: { icon: CheckCircle, text: 'Delivered', bg: 'bg-green-500/20', border: 'border-green-500/50', color: 'text-green-400' },
+    delivered: { icon: CheckCircle, text: 'Delivered', bg: 'bg-green-500/20', border: 'border-green-500/50', color: 'text-green-400' },
+    pending: { icon: Clock, text: 'Pending', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', color: 'text-yellow-400' },
+    waiting: { icon: Clock, text: 'In Queue', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50', color: 'text-yellow-400' },
+    accepted: { icon: Clock, text: 'Accepted', bg: 'bg-blue-500/20', border: 'border-blue-500/50', color: 'text-blue-400' },
+    processing: { icon: Loader2, text: 'Processing', bg: 'bg-blue-500/20', border: 'border-blue-500/50', color: 'text-blue-400', spin: true },
+    on: { icon: Loader2, text: 'In Progress', bg: 'bg-blue-500/20', border: 'border-blue-500/50', color: 'text-blue-400', spin: true },
+    failed: { icon: XCircle, text: 'Failed', bg: 'bg-red-500/20', border: 'border-red-500/50', color: 'text-red-400' },
+    refunded: { icon: RefreshCw, text: 'Refunded', bg: 'bg-purple-500/20', border: 'border-purple-500/50', color: 'text-purple-400' },
+    refund: { icon: RefreshCw, text: 'Refunded', bg: 'bg-purple-500/20', border: 'border-purple-500/50', color: 'text-purple-400' }
   };
   
-  const { icon: Icon, text, bg, color } = config[status] || config.pending;
+  const { icon: Icon, text, bg, border, color, spin } = config[status] || config.pending;
   
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${bg} ${color}`}>
-      <Icon className="w-3 h-3 mr-1" />
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${bg} ${border} ${color}`}>
+      <Icon className={`w-3.5 h-3.5 ${spin ? 'animate-spin' : ''}`} />
       {text}
     </span>
   );
 };
 
-// Order Card
-const OrderCard = ({ order, storeInfo, onCopy }) => {
+// Order Card - Updated for new API response
+const OrderCard = ({ order, onCopy, expanded, onToggle }) => {
   const getNetworkLogo = (network) => {
-    if (network === 'YELLO') return <MTNLogo size={36} />;
-    if (network === 'TELECEL') return <TelecelLogo size={36} />;
-    if (network === 'AT_PREMIUM') return <AirtelTigoLogo size={36} />;
-    return <Package className="w-9 h-9 text-gray-400" />;
-  };
-
-  const getNetworkName = (network) => {
-    if (network === 'YELLO') return 'MTN';
-    if (network === 'AT_PREMIUM') return 'AirtelTigo';
-    return network;
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
+    if (network === 'YELLO') return <MTNLogo size={44} />;
+    if (network === 'TELECEL') return <TelecelLogo size={44} />;
+    if (network === 'AT_PREMIUM' || network === 'at') return <AirtelTigoLogo size={44} />;
+    return <Package className="w-11 h-11 text-gray-400" />;
   };
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 mb-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          {getNetworkLogo(order.product.network)}
-          <div>
-            <h3 className="font-bold text-white">
-              {getNetworkName(order.product.network)} {order.product.capacity}GB
-            </h3>
-            <p className="text-xs text-gray-400">{order.product.displayName}</p>
+    <div className="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden mb-4 transition-all duration-300">
+      {/* Header - Clickable */}
+      <div 
+        className="p-4 cursor-pointer hover:bg-gray-750"
+        onClick={onToggle}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {getNetworkLogo(order.product?.network)}
+            <div>
+              <h3 className="font-bold text-white text-lg">
+                {order.product?.networkDisplay} {order.product?.capacityDisplay}
+              </h3>
+              <p className="text-sm text-gray-400">To: {order.recipientPhone}</p>
+            </div>
           </div>
-        </div>
-        <p className="text-xl font-bold text-yellow-400">GH₵ {order.amount.toFixed(2)}</p>
-      </div>
-
-      {/* Status */}
-      <div className="flex items-center justify-between mb-3 py-2 border-y border-gray-700">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Order:</span>
-          <StatusBadge status={order.orderStatus} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Payment:</span>
-          <StatusBadge status={order.paymentStatus} />
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge status={order.status} />
+            {expanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          </div>
         </div>
       </div>
 
-      {/* Status Message */}
-      {order.statusMessage && (
-        <div className={`mb-3 p-2 rounded-lg text-xs ${
-          order.orderStatus === 'completed' ? 'bg-green-900/30 text-green-400' :
-          order.orderStatus === 'failed' ? 'bg-red-900/30 text-red-400' :
-          'bg-blue-900/30 text-blue-400'
-        }`}>
-          {order.statusMessage}
-        </div>
-      )}
-
-      {/* Details */}
-      <div className="space-y-2 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-400">Transaction ID:</span>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-white text-xs">{order.transactionId}</span>
-            <button onClick={() => onCopy(order.transactionId)} className="p-1 hover:bg-gray-700 rounded">
-              <Copy className="w-3 h-3 text-gray-400" />
-            </button>
+      {/* Expanded Content */}
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-gray-700">
+          {/* Status Message */}
+          <div className={`mt-4 p-3 rounded-xl ${
+            order.status === 'completed' || order.status === 'delivered' 
+              ? 'bg-green-900/30 border border-green-800' 
+              : order.status === 'failed' 
+                ? 'bg-red-900/30 border border-red-800' 
+                : 'bg-blue-900/30 border border-blue-800'
+          }`}>
+            <p className={`text-sm ${
+              order.status === 'completed' || order.status === 'delivered'
+                ? 'text-green-300' 
+                : order.status === 'failed' 
+                  ? 'text-red-300' 
+                  : 'text-blue-300'
+            }`}>
+              {order.statusMessage}
+            </p>
           </div>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <span className="text-gray-400">Phone:</span>
-          <span className="text-white">{order.phoneNumber}</span>
-        </div>
-        
-        {order.customerName && (
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Customer:</span>
-            <span className="text-white">{order.customerName}</span>
-          </div>
-        )}
-        
-        <div className="flex items-center justify-between">
-          <span className="text-gray-400">Date:</span>
-          <span className="text-white text-xs">{formatDate(order.orderDate)}</span>
-        </div>
-      </div>
 
-      {/* Help Section */}
-      {(order.orderStatus === 'failed' || order.orderStatus === 'pending') && storeInfo?.contact?.whatsapp && (
-        <div className="mt-3 pt-3 border-t border-gray-700">
-          <a 
-            href={`https://wa.me/${storeInfo.contact.whatsapp.replace(/[^0-9]/g, '')}?text=Hi, I need help with order ${order.transactionId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
-          >
-            <Phone className="w-4 h-4" /> Contact Support
-          </a>
+          {/* Order Details */}
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between py-2 border-b border-gray-700/50">
+              <span className="text-gray-400 text-sm">Reference</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-white text-sm">{order.orderReference}</span>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onCopy(order.orderReference); }}
+                  className="p-1.5 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <Copy className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-gray-700/50">
+              <span className="text-gray-400 text-sm">Amount Paid</span>
+              <span className="font-bold text-yellow-400 text-lg">
+                GH₵{order.pricing?.totalPaid?.toFixed(2) || order.pricing?.basePrice?.toFixed(2) || '0.00'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-gray-700/50">
+              <span className="text-gray-400 text-sm">Ordered</span>
+              <span className="text-white text-sm">{order.timeSinceOrder}</span>
+            </div>
+
+            <div className="flex items-center justify-between py-2 border-b border-gray-700/50">
+              <span className="text-gray-400 text-sm">Processing</span>
+              <span className="text-white text-sm capitalize">{order.processingMethod?.replace(/_/g, ' ') || 'Automatic'}</span>
+            </div>
+          </div>
+
+          {/* Tracking Info */}
+          {order.tracking && (
+            <div className="mt-4 p-4 bg-indigo-900/20 border border-indigo-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="w-4 h-4 text-indigo-400" />
+                <span className="font-semibold text-indigo-300 text-sm">Tracking Information</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {order.tracking.batchNumber && (
+                  <div className="bg-indigo-900/30 rounded-lg p-2">
+                    <p className="text-xs text-indigo-400">Batch #</p>
+                    <p className="font-bold text-indigo-200">{order.tracking.batchNumber}</p>
+                  </div>
+                )}
+                {order.tracking.positionInBatch && (
+                  <div className="bg-indigo-900/30 rounded-lg p-2">
+                    <p className="text-xs text-indigo-400">Position</p>
+                    <p className="font-bold text-indigo-200">#{order.tracking.positionInBatch}</p>
+                  </div>
+                )}
+                {order.tracking.portalId && (
+                  <div className="bg-indigo-900/30 rounded-lg p-2">
+                    <p className="text-xs text-indigo-400">Portal ID</p>
+                    <p className="font-bold text-indigo-200 text-sm">{order.tracking.portalId}</p>
+                  </div>
+                )}
+                {order.tracking.portalStatus && (
+                  <div className="bg-indigo-900/30 rounded-lg p-2">
+                    <p className="text-xs text-indigo-400">Portal Status</p>
+                    <p className="font-bold text-indigo-200 capitalize">{order.tracking.portalStatus}</p>
+                  </div>
+                )}
+              </div>
+
+              {order.tracking.trackingMessage && (
+                <p className="mt-3 text-xs text-indigo-300 bg-indigo-900/30 p-2 rounded-lg">
+                  ℹ️ {order.tracking.trackingMessage}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Help for pending/failed orders */}
+          {(order.status === 'pending' || order.status === 'waiting' || order.status === 'failed') && (
+            <div className="mt-4 p-4 bg-amber-900/20 border border-amber-700/50 rounded-xl">
+              <p className="text-amber-300 text-sm mb-3">
+                {order.status === 'failed' 
+                  ? '❌ Something went wrong with your order.' 
+                  : '⏳ Your order is being processed. Delivery usually takes 10 mins - 24 hours.'}
+              </p>
+              <a 
+                href={WHATSAPP_CHANNEL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" /> 
+                Join WhatsApp for Support
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -193,13 +248,14 @@ const OrderCard = ({ order, storeInfo, onCopy }) => {
 export default function OrderSearchPage() {
   const params = useParams();
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [searchType, setSearchType] = useState('transactionId');
+  const [searchType, setSearchType] = useState('phone');
   const [searchValue, setSearchValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [storeInfo, setStoreInfo] = useState(null);
   const [searched, setSearched] = useState(false);
+  const [expandedIndex, setExpandedIndex] = useState(0);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -220,49 +276,48 @@ export default function OrderSearchPage() {
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
-    showToast('Copied!', 'success');
+    setCopied(true);
+    showToast('Copied to clipboard!', 'success');
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  // Search using PROXY
+  // Search using the new Track API
   const handleSearch = async (e) => {
     e.preventDefault();
 
     if (!searchValue.trim()) {
-      showToast('Enter a search value', 'warning');
+      showToast('Please enter a value to search', 'warning');
       return;
     }
 
     setLoading(true);
     setOrders([]);
-    setStoreInfo(null);
     setSearched(true);
+    setExpandedIndex(0);
 
     try {
       const payload = {};
-      if (searchType === 'transactionId') payload.transactionId = searchValue.trim();
-      else if (searchType === 'phoneNumber') payload.phoneNumber = searchValue.trim();
+      if (searchType === 'phone') payload.phoneNumber = searchValue.trim();
       else if (searchType === 'reference') payload.reference = searchValue.trim();
+      else if (searchType === 'transactionId') payload.transactionId = searchValue.trim();
 
-      const response = await fetch(
-        `${API_BASE}/agent-stores/stores/${params.storeSlug}/orders/search`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }
-      );
+      const response = await fetch(`${API_BASE}/momo-purchase/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
       const data = await response.json();
 
-      if (data.status === 'success') {
+      if (data.status === 'success' && data.data?.orders?.length > 0) {
         setOrders(data.data.orders);
-        setStoreInfo(data.data.store);
         showToast(`Found ${data.data.orders.length} order(s)`, 'success');
       } else {
         showToast(data.message || 'No orders found', 'error');
       }
     } catch (error) {
-      showToast('Search failed', 'error');
+      console.error('Search error:', error);
+      showToast('Search failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -283,39 +338,43 @@ export default function OrderSearchPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Link href={`/shop/${params.storeSlug}/products`} className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700">
+            <Link href={`/shop/${params.storeSlug}/products`} className="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold">Track Order</h1>
-              <p className="text-gray-400 text-sm">Search for your order</p>
+              <h1 className="text-xl font-bold">Track Your Order</h1>
+              <p className="text-gray-400 text-sm">Check your delivery status</p>
             </div>
           </div>
-          <button onClick={toggleDarkMode} className="p-2 bg-gray-800 rounded-lg">
+          <button onClick={toggleDarkMode} className="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors">
             {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
           </button>
         </div>
 
         {/* Search Form */}
-        <div className="bg-gray-800 rounded-xl p-4 mb-6">
+        <div className="bg-gray-800 rounded-2xl p-5 mb-6 border border-gray-700">
           <form onSubmit={handleSearch}>
-            {/* Search Type */}
+            {/* Search Type Toggle */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Search By:</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['transactionId', 'phoneNumber', 'reference'].map((type) => (
+              <label className="block text-sm font-medium text-gray-300 mb-3">Search by:</label>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-gray-900 rounded-xl">
+                {[
+                  { key: 'phone', label: 'Phone', icon: Phone },
+                  { key: 'reference', label: 'Reference', icon: Hash },
+                  { key: 'transactionId', label: 'Trans. ID', icon: Calendar }
+                ].map(({ key, label, icon: Icon }) => (
                   <button
-                    key={type}
+                    key={key}
                     type="button"
-                    onClick={() => setSearchType(type)}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      searchType === type
-                        ? 'bg-yellow-500 text-black'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    onClick={() => setSearchType(key)}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                      searchType === key
+                        ? 'bg-yellow-500 text-black shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }`}
                   >
-                    {type === 'transactionId' ? 'Transaction ID' : 
-                     type === 'phoneNumber' ? 'Phone' : 'Reference'}
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
                   </button>
                 ))}
               </div>
@@ -324,17 +383,17 @@ export default function OrderSearchPage() {
             {/* Search Input */}
             <div className="mb-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
                 <input
                   type="text"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   placeholder={
-                    searchType === 'transactionId' ? 'Enter transaction ID...' : 
-                    searchType === 'phoneNumber' ? 'Enter phone number...' : 
-                    'Enter reference...'
+                    searchType === 'phone' ? 'Enter phone number (e.g., 0241234567)' : 
+                    searchType === 'reference' ? 'Enter order reference' : 
+                    'Enter transaction ID'
                   }
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -343,76 +402,150 @@ export default function OrderSearchPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg"
             >
               {loading ? (
-                <><Loader className="w-4 h-4 animate-spin" /> Searching...</>
+                <><Loader2 className="w-5 h-5 animate-spin" /> Searching...</>
               ) : (
-                <><Search className="w-4 h-4" /> Search Order</>
+                <><Search className="w-5 h-5" /> Track Order</>
               )}
             </button>
           </form>
-
-          {/* Tip */}
-          <p className="text-xs text-gray-500 mt-3 text-center">
-            Transaction ID was sent after payment completion
-          </p>
         </div>
 
-        {/* Loading */}
+        {/* Loading Animation */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-12">
-            <Lottie animationData={loadingAnimation} loop autoplay style={{ width: 100, height: 100 }} />
-            <p className="text-gray-400 text-sm mt-2">Searching...</p>
+            <Lottie animationData={loadingAnimation} loop autoplay style={{ width: 120, height: 120 }} />
+            <p className="text-gray-400 text-sm mt-2">Looking for your order...</p>
           </div>
         )}
 
         {/* Results */}
         {!loading && orders.length > 0 && (
           <div>
-            <h2 className="text-lg font-bold mb-3">
-              Results ({orders.length})
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Package className="w-5 h-5 text-yellow-400" />
+                Found {orders.length} order{orders.length > 1 ? 's' : ''}
+              </h2>
+            </div>
+            
             {orders.map((order, index) => (
               <OrderCard 
                 key={index}
                 order={order}
-                storeInfo={storeInfo}
                 onCopy={handleCopy}
+                expanded={expandedIndex === index}
+                onToggle={() => setExpandedIndex(expandedIndex === index ? -1 : index)}
               />
             ))}
+
+            {/* General Help */}
+            <div className="mt-4 p-4 bg-gray-800 border border-gray-700 rounded-2xl">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-green-600 rounded-full flex-shrink-0">
+                  <MessageCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white mb-1">Need Help?</p>
+                  <p className="text-gray-400 text-sm mb-3">
+                    Join our WhatsApp channel for support and delivery updates.
+                  </p>
+                  <a 
+                    href={WHATSAPP_CHANNEL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Join Channel
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {/* No Results */}
         {!loading && searched && orders.length === 0 && (
-          <div className="bg-gray-800 rounded-xl p-8 text-center">
-            <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <h3 className="font-bold mb-2">No Orders Found</h3>
-            <p className="text-gray-400 text-sm">Check your search details and try again</p>
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8 text-center">
+            <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-gray-500" />
+            </div>
+            <h3 className="font-bold text-lg mb-2">No Orders Found</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              We couldn't find any orders matching your search. Please check your details and try again.
+            </p>
+            <div className="bg-gray-700/50 rounded-xl p-4 text-left">
+              <p className="text-sm text-gray-300 font-medium mb-2">Tips:</p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Make sure the phone number is correct</li>
+                <li>• Check if you have the right reference</li>
+                <li>• Try searching with a different method</li>
+              </ul>
+            </div>
           </div>
         )}
 
-        {/* Help - Before Search */}
+        {/* How It Works - Before Search */}
         {!searched && (
-          <div className="bg-gray-800 rounded-xl p-4">
-            <h3 className="font-bold mb-3">How to Track</h3>
-            <div className="space-y-3">
-              {[
-                { num: 1, title: 'Choose Method', desc: 'Select Transaction ID, Phone, or Reference' },
-                { num: 2, title: 'Enter Details', desc: 'Type in your information exactly' },
-                { num: 3, title: 'View Status', desc: 'See your order and delivery status' }
-              ].map(({ num, title, desc }) => (
-                <div key={num} className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-yellow-500 text-black rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    {num}
+          <div className="space-y-4">
+            {/* Status Guide */}
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-5">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-yellow-400" />
+                Order Status Guide
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { status: 'pending', desc: 'Order received, waiting to be processed' },
+                  { status: 'processing', desc: 'Your data is being sent to the network' },
+                  { status: 'completed', desc: 'Data delivered successfully! Check your phone' },
+                  { status: 'failed', desc: 'Something went wrong - contact support' }
+                ].map(({ status, desc }) => (
+                  <div key={status} className="flex items-center gap-3">
+                    <StatusBadge status={status} />
+                    <span className="text-gray-400 text-sm">{desc}</span>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-sm">{title}</h4>
-                    <p className="text-gray-400 text-xs">{desc}</p>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery Info */}
+            <div className="bg-gradient-to-r from-amber-900/30 to-orange-900/30 border border-amber-700/50 rounded-2xl p-5">
+              <h3 className="font-bold mb-3 text-amber-300 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Delivery Time
+              </h3>
+              <p className="text-amber-200 text-sm mb-3">
+                Most orders are delivered within <strong>10 minutes to 24 hours</strong> depending on network conditions.
+              </p>
+              <p className="text-amber-300/80 text-xs">
+                🤝 We always deliver - your data is guaranteed!
+              </p>
+            </div>
+
+            {/* How to Search */}
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl p-5">
+              <h3 className="font-bold mb-4">How to Track Your Order</h3>
+              <div className="space-y-4">
+                {[
+                  { num: 1, title: 'Choose Search Method', desc: 'Select Phone, Reference, or Transaction ID' },
+                  { num: 2, title: 'Enter Your Details', desc: 'Type in exactly as provided during purchase' },
+                  { num: 3, title: 'View Status', desc: 'See real-time status and tracking info' }
+                ].map(({ num, title, desc }) => (
+                  <div key={num} className="flex items-start gap-4">
+                    <div className="w-8 h-8 bg-gradient-to-r from-yellow-500 to-yellow-400 text-black rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      {num}
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-white">{title}</h4>
+                      <p className="text-gray-400 text-sm">{desc}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -421,10 +554,15 @@ export default function OrderSearchPage() {
         <div className="mt-6 text-center">
           <Link 
             href={`/shop/${params.storeSlug}/products`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-sm font-medium transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Shop
           </Link>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-gray-500 text-xs">
+          <p>Powered by DataMart Ghana</p>
         </div>
       </div>
 
