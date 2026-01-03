@@ -125,12 +125,12 @@ const OrderCard = ({ order, onCopy, expanded, onToggle }) => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+            {/* <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-gray-500 dark:text-gray-400 text-sm">Amount Paid</span>
               <span className="font-semibold text-gray-900 dark:text-white">
                 GH₵{order.pricing?.totalPaid?.toFixed(2) || order.pricing?.basePrice?.toFixed(2) || '0.00'}
               </span>
-            </div>
+            </div> */}
 
             <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-gray-500 dark:text-gray-400 text-sm">Ordered</span>

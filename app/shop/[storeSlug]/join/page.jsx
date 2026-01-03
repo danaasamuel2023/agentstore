@@ -11,7 +11,7 @@ import {
 
 const API_BASE = 'https://api.datamartgh.shop/api';
 
-export default function JoinPage() {
+  export default function JoinPage() {
   const params = useParams();
   const router = useRouter();
   
