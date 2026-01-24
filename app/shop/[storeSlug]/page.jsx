@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Zap, Shield, Clock, CheckCircle, ChevronRight, Star, Truck } from 'lucide-react';
+import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
+import HeroSection from './components/HeroSection';
+import PackageDisplay from './components/PackageDisplay';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
@@ -80,6 +83,7 @@ export default function StorePage() {
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [designSettings, setDesignSettings] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -87,6 +91,12 @@ export default function StorePage() {
 
   const fetchData = async () => {
     try {
+      // Check for cached design settings first (1 hour cache)
+      const cachedDesign = getCachedDesign(params.storeSlug);
+      if (cachedDesign) {
+        setDesignSettings(cachedDesign);
+      }
+
       const [storeRes, productsRes] = await Promise.all([
         fetch(`${API_BASE}/agent-stores/store/${params.storeSlug}`),
         fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/products`)
@@ -95,7 +105,14 @@ export default function StorePage() {
       const storeData = await storeRes.json();
       const productsData = await productsRes.json();
 
-      if (storeData.status === 'success') setStore(storeData.data);
+      if (storeData.status === 'success') {
+        setStore(storeData.data);
+
+        // Extract and cache design settings
+        const newDesignSettings = extractDesignSettings(storeData.data);
+        setDesignSettings(newDesignSettings);
+        setCachedDesign(params.storeSlug, newDesignSettings);
+      }
       if (productsData.status === 'success') setProducts(productsData.data?.products || []);
     } catch (error) {
       console.error('Error:', error);
@@ -170,73 +187,19 @@ export default function StorePage() {
 
   const popularProducts = getPopularProducts();
 
+  // Get design styles from settings
+  const heroStyle = designSettings?.heroStyle || store?.customization?.heroStyle || 'default';
+  const packageDisplayStyle = designSettings?.packageDisplayStyle || store?.customization?.packageDisplayStyle || 'default';
+
   return (
     <div className="space-y-10">
-      
-      {/* Hero Section - Uses Store Theme Colors */}
-      <section 
-        className="relative rounded-3xl overflow-hidden animate-fadeIn"
-        style={{ backgroundColor: theme.primary }}
-      >
-        <div 
-          className="absolute inset-0"
-          style={{ 
-            background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`
-          }}
-        ></div>
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-            backgroundSize: '32px 32px'
-          }}></div>
-        </div>
-        
-        <div className="relative px-6 py-12 md:px-10 md:py-16">
-          <div className="max-w-xl">
-            <span
-              className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full mb-4 animate-pulse-slow bg-yellow-400 text-black"
-            >
-              <Zap className="w-3 h-3" />
-              Instant Delivery
-            </span>
-            
-            <h1
-              className="text-3xl md:text-4xl font-bold mb-4 leading-tight animate-slideUp"
-              style={{ color: theme.text }}
-            >
-              Buy Data Bundles<br />
-              <span className="text-yellow-400">At Unbeatable Prices</span>
-            </h1>
-            
-            <p 
-              className="text-lg mb-8 animate-slideUp opacity-80" 
-              style={{ color: theme.text, animationDelay: '100ms' }}
-            >
-              MTN, Telecel & AirtelTigo bundles delivered to your phone within minutes. Safe, fast, and reliable.
-            </p>
-            
-            <div className="flex flex-wrap gap-3 animate-slideUp" style={{ animationDelay: '200ms' }}>
-              <Link
-                href={`/shop/${params.storeSlug}/products`}
-                className="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300"
-              >
-                Shop Now
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link 
-                href={`/shop/${params.storeSlug}/orders/search`}
-                className="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-xl transition-all duration-300"
-                style={{ 
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  color: theme.text
-                }}
-              >
-                Track Order
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+
+      {/* Hero Section - Uses Store Theme Colors and Style */}
+      <HeroSection
+        style={heroStyle}
+        storeSlug={params.storeSlug}
+        theme={theme}
+      />
 
       {/* Features */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -335,48 +298,13 @@ export default function StorePage() {
         </div>
       </section>
 
-      {/* Popular Products */}
-      {popularProducts.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Popular Bundles</h2>
-            <Link
-              href={`/shop/${params.storeSlug}/products`}
-              className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition"
-            >
-              See All
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {popularProducts.map((product) => {
-              const style = getNetworkStyle(product.network);
-              const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
-              
-              return (
-                <Link 
-                  key={product._id}
-                  href={`/shop/${params.storeSlug}/products?network=${product.network}`}
-                  className="group"
-                >
-                  <div className={`${style.bg} ${style.hover} ${style.text} rounded-2xl p-4 transition-all group-hover:shadow-lg group-hover:-translate-y-1 relative`}>
-                    {product.isOnSale && (
-                      <span className="absolute top-2 right-2 bg-white/20 text-xs font-bold px-2 py-0.5 rounded-full">
-                        SALE
-                      </span>
-                    )}
-                    <div className="mb-2">{style.logo}</div>
-                    <h3 className="text-2xl font-bold">{product.capacity}GB</h3>
-                    <p className="text-xs opacity-70 mb-2">{style.name}</p>
-                    <p className="text-lg font-bold">₵{price.toFixed(2)}</p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* Popular Products - Uses PackageDisplay component with selected style */}
+      <PackageDisplay
+        style={packageDisplayStyle}
+        products={popularProducts}
+        storeSlug={params.storeSlug}
+        title="Popular Bundles"
+      />
 
       {/* Why Choose Us */}
       <section className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800">

@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Phone, MessageCircle, Menu, X, Clock, MapPin, Users, Briefcase, Moon, Sun } from 'lucide-react';
+import { Phone, MessageCircle, Menu, X, Clock, MapPin, Users, Briefcase, Moon, Sun, ExternalLink } from 'lucide-react';
+import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
+import AnnouncementPopup from './components/AnnouncementPopup';
 
 const API_BASE = 'https://api.datamartgh.shop';
 
@@ -59,6 +61,7 @@ export default function StoreLayout({ children }) {
   const [subAgentEnabled, setSubAgentEnabled] = useState(false);
   const [activationFee, setActivationFee] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
+  const [designSettings, setDesignSettings] = useState(null);
 
   // Initialize dark mode from localStorage
   useEffect(() => {
@@ -101,10 +104,22 @@ export default function StoreLayout({ children }) {
 
   const fetchStore = async () => {
     try {
+      // Check for cached design settings first (1 hour cache)
+      const cachedDesign = getCachedDesign(params.storeSlug);
+      if (cachedDesign) {
+        setDesignSettings(cachedDesign);
+      }
+
       const res = await fetch(`${API_BASE}/api/v1/agent-stores/store/${params.storeSlug}`);
       const data = await res.json();
       if (data.status === 'success') {
         setStore(data.data);
+
+        // Extract and cache design settings
+        const newDesignSettings = extractDesignSettings(data.data);
+        setDesignSettings(newDesignSettings);
+        setCachedDesign(params.storeSlug, newDesignSettings);
+
         // Store slug for other pages
         if (typeof window !== 'undefined') {
           localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
@@ -167,9 +182,21 @@ export default function StoreLayout({ children }) {
   // Get theme colors
   const theme = getThemeColors(store);
 
+  // Get nav style from design settings
+  const navStyle = designSettings?.navStyle || store?.customization?.navStyle || 'default';
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
-      
+
+      {/* Announcement Popup - Different styles based on settings */}
+      {designSettings?.announcement && designSettings.announcement.enabled && (
+        <AnnouncementPopup
+          announcement={designSettings.announcement}
+          style={designSettings.announcementPopupStyle || 'banner'}
+          theme={theme}
+        />
+      )}
+
       {/* Top Info Bar - Uses Store Theme */}
       <div 
         className="text-xs"
@@ -408,9 +435,9 @@ export default function StoreLayout({ children }) {
                 {store.storeLogo ? (
                   <img src={store.storeLogo} alt={store.storeName} className="h-10 w-10 rounded-xl object-cover" />
                 ) : (
-                  <div 
+                  <div
                     className="h-10 w-10 rounded-xl flex items-center justify-center"
-                    style={{ 
+                    style={{
                       background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`
                     }}
                   >
@@ -422,6 +449,20 @@ export default function StoreLayout({ children }) {
               <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed max-w-sm">
                 {store.storeDescription || 'Your trusted source for affordable data bundles. Fast delivery, best prices, all networks supported.'}
               </p>
+
+              {/* WhatsApp Group Link */}
+              {(store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink) && (
+                <a
+                  href={store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-all duration-200 hover:shadow-lg"
+                >
+                  <Users className="w-4 h-4" />
+                  Join Our WhatsApp Group
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
 
             {/* Quick Links */}
@@ -565,12 +606,76 @@ export default function StoreLayout({ children }) {
         .animate-bounce-slow {
           animation: bounce-slow 2s ease-in-out infinite;
         }
-        
+
+        /* Announcement Popup Animations */
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes shrink {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.3s ease-out forwards;
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.4s ease-out forwards;
+        }
+
+        .animate-slideInRight {
+          animation: slideInRight 0.3s ease-out forwards;
+        }
+
+        .animate-shrink {
+          animation: shrink linear forwards;
+        }
+
         /* Smooth page transitions */
         .page-transition {
           animation: fadeInUp 0.3s ease-out;
         }
-        
+
         /* Smooth scrolling */
         html {
           scroll-behavior: smooth;
