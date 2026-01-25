@@ -456,7 +456,7 @@ function ProductsContent() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Data Bundles</h1>
-        <p className="text-gray-500">Choose your bundle and get data instantly</p>
+        <p className="text-gray-500">Choose your bundle  and get data instantly</p>
       </div>
 
       {/* Filters */}
