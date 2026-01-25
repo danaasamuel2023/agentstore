@@ -188,11 +188,11 @@ export default function StoreLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
 
-      {/* Announcement Popup - Different styles based on settings */}
-      {designSettings?.announcement && designSettings.announcement.enabled && (
+      {/* Announcement Popup - Uses fresh store data (not cached) for instant updates */}
+      {store?.announcement && store.announcement.enabled && (
         <AnnouncementPopup
-          announcement={designSettings.announcement}
-          style={designSettings.announcementPopupStyle || 'banner'}
+          announcement={store.announcement}
+          style={designSettings?.announcementPopupStyle || store?.customization?.announcementPopupStyle || 'banner'}
           theme={theme}
         />
       )}
