@@ -7,9 +7,10 @@ const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 // Network Logos
 const MTNLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#FFCC00"/>
-    <path d="M12 18 L18 30 L24 18 L30 30 L36 18" stroke="#000" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+    <rect width="80" height="80" rx="16" fill="#FFCC00"/>
+    <ellipse cx="40" cy="40" rx="30" ry="20" stroke="#000" strokeWidth="3" fill="none"/>
+    <text x="40" y="46" textAnchor="middle" fontFamily="Arial Black" fontSize="14" fontWeight="900" fill="#000">MTN</text>
   </svg>
 );
 
