@@ -70,6 +70,10 @@ export const metadata = {
   
   manifest: '/manifest.json',
   
+  verification: {
+    google: '_FMKBkBgDhFI_ZQ4m1alIuvdXB1Hj7Q5Cg0oawQAY48',
+  },
+
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
