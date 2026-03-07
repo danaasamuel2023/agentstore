@@ -1,25 +1,27 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
-  Users, Store, CheckCircle, ArrowRight, Shield, Zap, 
+  Users, Store, CheckCircle, ArrowRight, Shield, Zap,
   TrendingUp, DollarSign, Phone, Mail, Lock, Eye, EyeOff,
   AlertCircle, Loader2, ArrowLeft, Gift, Percent, Clock,
-  Copy, ExternalLink, Wallet, Settings, Share2
+  Copy, ExternalLink, Wallet, Settings, Share2, CreditCard
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
 
-  export default function JoinPage() {
+function JoinPageContent() {
   const params = useParams();
   const router = useRouter();
-  
+  const searchParams = useSearchParams();
+
   const [store, setStore] = useState(null);
   const [joinInfo, setJoinInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(1);
-  
+
   const [formData, setFormData] = useState({
     storeName: '',
     ownerName: '',
@@ -37,15 +39,103 @@ const API_BASE = 'https://api.datamartgh.shop/api';
   const [success, setSuccess] = useState(false);
   const [savedData, setSavedData] = useState(null);
   const [copied, setCopied] = useState('');
+  const [paymentData, setPaymentData] = useState(null);
+  const [paymentVerifying, setPaymentVerifying] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [resendingCredentials, setResendingCredentials] = useState(false);
+  const [resendResult, setResendResult] = useState(null);
 
   useEffect(() => {
     fetchData();
-    // Check for existing saved registration
     const saved = localStorage.getItem('resellerAccount');
     if (saved) {
       setSavedData(JSON.parse(saved));
     }
+
+    // Check if returning from Paystack payment
+    const reference = searchParams.get('reference');
+    const applicationId = searchParams.get('applicationId');
+    if (reference && applicationId) {
+      handlePaymentCallback(reference, applicationId);
+    }
   }, [params.storeSlug]);
+
+  const handlePaymentCallback = async (reference, applicationId) => {
+    setPaymentVerifying(true);
+    setStep(4);
+
+    // Load pending registration data
+    const pendingData = localStorage.getItem('pendingResellerRegistration');
+    if (pendingData) {
+      setPaymentData(JSON.parse(pendingData));
+    }
+
+    // Poll the backend to check if webhook has activated the store
+    const maxAttempts = 15; // 15 attempts × 2s = 30s max wait
+    let activated = false;
+    let storeInfo = null;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const res = await fetch(
+          `${API_BASE}/sub-agent/application/${applicationId}/status?reference=${reference}`
+        );
+        const data = await res.json();
+
+        if (data.status === 'success') {
+          if (data.data.status === 'activated') {
+            activated = true;
+            storeInfo = data.data.activatedStore || null;
+            break;
+          }
+          // If still payment_pending, keep polling
+        }
+      } catch (err) {
+        // Network error, keep trying
+      }
+    }
+
+    setPaymentVerifying(false);
+
+    if (activated) {
+      setPaymentConfirmed(true);
+      if (storeInfo) {
+        setPaymentData(prev => ({ ...prev, activatedStore: storeInfo }));
+      }
+      localStorage.removeItem('pendingResellerRegistration');
+    } else {
+      // Webhook may be slow — show a "we'll SMS you" message instead of false failure
+      setPaymentConfirmed(true);
+      setPaymentData(prev => ({ ...prev, delayed: true }));
+      localStorage.removeItem('pendingResellerRegistration');
+    }
+  };
+
+  const handleResendCredentials = async () => {
+    const applicationId = searchParams.get('applicationId');
+    if (!applicationId || !paymentData?.email) return;
+
+    setResendingCredentials(true);
+    setResendResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/sub-agent/application/${applicationId}/resend-credentials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: paymentData.email })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setResendResult({ success: true, message: 'Login details sent via SMS!', tempPassword: data.data.tempPassword });
+      } else {
+        setResendResult({ success: false, message: data.message || 'Failed to resend' });
+      }
+    } catch (err) {
+      setResendResult({ success: false, message: 'Network error. Please try again.' });
+    } finally {
+      setResendingCredentials(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -71,7 +161,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.storeName.trim()) newErrors.storeName = 'Store name is required';
     if (!formData.ownerName.trim()) newErrors.ownerName = 'Your name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
@@ -81,7 +171,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
     if (!formData.password) newErrors.password = 'Password is required';
     else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -89,11 +179,11 @@ const API_BASE = 'https://api.datamartgh.shop/api';
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
-    
+
     if (!validateForm()) return;
-    
+
     setSubmitting(true);
-    
+
     try {
       const res = await fetch(`${API_BASE}/sub-agent/store/${params.storeSlug}/apply`, {
         method: 'POST',
@@ -108,17 +198,17 @@ const API_BASE = 'https://api.datamartgh.shop/api';
           proposedStoreDescription: `Data bundles by ${formData.storeName.trim()}`
         })
       });
-      
+
       const data = await res.json();
-      
+
       if (data.status === 'success') {
-        // Save registration data to localStorage INCLUDING PASSWORD
+        // FREE activation — store is already active
         const accountData = {
           storeName: formData.storeName.trim(),
           ownerName: formData.ownerName.trim(),
           email: formData.email.trim().toLowerCase(),
           phone: formData.phone.replace(/\s/g, ''),
-          password: formData.password, // Save password so user can view later
+          password: formData.password,
           storeSlug: data.data?.storeSlug,
           storeLink: data.data?.storeUrl || `https://www.cheapdata.shop/shop/${data.data?.storeSlug}`,
           loginUrl: data.data?.loginUrl || `https://www.cheapdata.shop/shop/${params.storeSlug}/agent-login`,
@@ -126,13 +216,33 @@ const API_BASE = 'https://api.datamartgh.shop/api';
           parentStore: store?.storeName,
           createdAt: new Date().toISOString()
         };
-        
+
         localStorage.setItem('resellerAccount', JSON.stringify(accountData));
         setSavedData(accountData);
-        
-        // Store is already activated - show success
         setSuccess(true);
         setStep(3);
+
+      } else if (data.status === 'payment_required') {
+        // PAID activation — redirect to Paystack
+        const pendingData = {
+          storeName: formData.storeName.trim(),
+          ownerName: formData.ownerName.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.replace(/\s/g, ''),
+          password: formData.password,
+          applicationId: data.data?.applicationId,
+          activationFee: data.data?.activationFee,
+          paymentReference: data.data?.paymentReference,
+          parentStore: store?.storeName,
+          parentSlug: params.storeSlug
+        };
+
+        localStorage.setItem('pendingResellerRegistration', JSON.stringify(pendingData));
+        setPaymentData(pendingData);
+
+        // Redirect to Paystack payment page
+        window.location.href = data.data.paymentUrl;
+
       } else {
         setSubmitError(data.message || 'Registration failed. Please try again.');
       }
@@ -182,9 +292,214 @@ const API_BASE = 'https://api.datamartgh.shop/api';
   }
 
   const activationFee = joinInfo.settings?.activationFee?.amount || 0;
-  const isFree = activationFee === 0;
+  const activationFeeEnabled = joinInfo.settings?.activationFee?.enabled && activationFee > 0;
+  const isFree = !activationFeeEnabled;
 
-  // Success state with detailed instructions
+  // ===== STEP 4: Payment callback — activation in progress =====
+  if (step === 4) {
+    return (
+      <div className="max-w-lg mx-auto">
+        <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-xl">
+          {paymentVerifying ? (
+            <>
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-8 text-white text-center">
+                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Loader2 className="w-12 h-12 animate-spin" />
+                </div>
+                <h1 className="text-2xl font-bold">Verifying Payment...</h1>
+                <p className="text-blue-100 mt-2">Please wait while we confirm your payment and activate your store</p>
+              </div>
+              <div className="p-6 text-center">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <p className="text-sm text-blue-700">This may take a few seconds. Do not close this page.</p>
+                </div>
+              </div>
+            </>
+          ) : paymentConfirmed ? (
+            <>
+              {paymentData?.delayed ? (
+                <>
+                  <div className="bg-gradient-to-r from-yellow-500 to-orange-500 p-8 text-white text-center">
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-2xl font-bold">Payment Received!</h1>
+                    <p className="text-yellow-100 mt-2 text-lg">Your store is being activated</p>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                      <p className="text-yellow-800 font-medium text-center">Your payment was successful. Activation is in progress.</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-center">
+                      <Phone className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                      <p className="text-blue-800 font-semibold">You will receive your login details via SMS shortly.</p>
+                      <p className="text-blue-600 text-sm mt-2">This usually takes less than a minute. Check your messages.</p>
+                    </div>
+                    {resendResult?.success && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                        <p className="text-green-800 font-medium text-center">{resendResult.message}</p>
+                        {resendResult.tempPassword && (
+                          <div className="mt-3 bg-white rounded-lg p-3 border border-green-300 text-center">
+                            <p className="text-xs text-gray-500 mb-1">Your new temporary password:</p>
+                            <div className="flex items-center justify-center gap-2">
+                              <code className="text-lg font-bold text-red-600">{resendResult.tempPassword}</code>
+                              <button onClick={() => copyToClipboard(resendResult.tempPassword, 'temppass')} className="p-1 hover:bg-green-100 rounded">
+                                {copied === 'temppass' ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Please change this after login.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {resendResult && !resendResult.success && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <p className="text-red-700 text-sm text-center">{resendResult.message}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleResendCredentials}
+                      disabled={resendingCredentials}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 text-white font-medium rounded-xl transition"
+                    >
+                      {resendingCredentials ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                      ) : (
+                        <><Phone className="w-4 h-4" /> Resend Login Details via SMS</>
+                      )}
+                    </button>
+                    <Link
+                      href={`/shop/${params.storeSlug}`}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back to Shop
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-8 text-white text-center">
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-12 h-12" />
+                    </div>
+                    <h1 className="text-3xl font-bold">Store Activated!</h1>
+                    <p className="text-green-100 mt-2 text-lg">Your payment is confirmed and your store is ready</p>
+                  </div>
+                  <div className="p-6 space-y-5">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <p className="text-green-800 font-medium text-center">Your reseller store has been created successfully!</p>
+                    </div>
+
+                    {paymentData && (
+                      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <AlertCircle className="w-5 h-5 text-yellow-600" />
+                          <h3 className="font-bold text-yellow-800">YOUR LOGIN DETAILS - SAVE THIS!</h3>
+                        </div>
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between items-center py-2 border-b border-yellow-200">
+                            <span className="text-gray-600">Store Name:</span>
+                            <span className="font-bold text-gray-900">{paymentData.storeName}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-yellow-200">
+                            <span className="text-gray-600">Email (Login):</span>
+                            <div className="flex items-center gap-2">
+                              <code className="bg-white px-2 py-1 rounded text-sm font-mono">{paymentData.email}</code>
+                              <button onClick={() => copyToClipboard(paymentData.email, 'email')} className="p-1 hover:bg-yellow-200 rounded">
+                                {copied === 'email' ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b border-yellow-200 bg-yellow-100 -mx-5 px-5">
+                            <span className="text-gray-600 font-medium">Password:</span>
+                            <div className="flex items-center gap-2">
+                              <code className="bg-white px-3 py-1 rounded text-sm font-mono font-bold text-red-600">{paymentData.password}</code>
+                              <button onClick={() => copyToClipboard(paymentData.password, 'pass')} className="p-1 hover:bg-yellow-200 rounded">
+                                {copied === 'pass' ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-yellow-700 mt-4 text-center">
+                          You will also receive your login details via SMS shortly.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                      <p className="text-sm text-blue-800 font-medium mb-2">Login to your dashboard:</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <code className="bg-blue-100 px-3 py-2 rounded-lg text-blue-700 font-bold text-lg flex-1">agent.cheapdata.shop</code>
+                        <button onClick={() => copyToClipboard('agent.cheapdata.shop', 'dashboard')} className="p-2 bg-blue-100 hover:bg-blue-200 rounded-lg">
+                          {copied === 'dashboard' ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5 text-blue-600" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Link
+                        href={`/shop/${params.storeSlug}`}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
+                      >
+                        Back to Shop
+                      </Link>
+                      <a
+                        href="https://agent.cheapdata.shop"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition shadow-lg"
+                      >
+                        Login to Dashboard
+                        <ExternalLink className="w-5 h-5" />
+                      </a>
+                    </div>
+
+                    <p className="text-center text-xs text-gray-400">
+                      Screenshot this page! Your login details will also be sent via SMS.
+                    </p>
+
+                    {resendResult?.success && resendResult.tempPassword && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                        <p className="text-green-800 font-medium text-center text-sm">New password sent via SMS!</p>
+                        <div className="mt-2 bg-white rounded-lg p-3 border border-green-300 text-center">
+                          <p className="text-xs text-gray-500 mb-1">New temporary password:</p>
+                          <div className="flex items-center justify-center gap-2">
+                            <code className="text-lg font-bold text-red-600">{resendResult.tempPassword}</code>
+                            <button onClick={() => copyToClipboard(resendResult.tempPassword, 'temppass2')} className="p-1 hover:bg-green-100 rounded">
+                              {copied === 'temppass2' ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {resendResult && !resendResult.success && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                        <p className="text-red-700 text-xs text-center">{resendResult.message}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleResendCredentials}
+                      disabled={resendingCredentials}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 border border-blue-200 rounded-xl transition disabled:opacity-50"
+                    >
+                      {resendingCredentials ? (
+                        <><Loader2 className="w-3 h-3 animate-spin" /> Sending...</>
+                      ) : (
+                        <><Phone className="w-3 h-3" /> Didn&apos;t get SMS? Resend Login Details</>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // Success state with detailed instructions (FREE activation)
   if (success && savedData) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -194,7 +509,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-12 h-12" />
             </div>
-            <h1 className="text-3xl font-bold">🎉 Congratulations!</h1>
+            <h1 className="text-3xl font-bold">Congratulations!</h1>
             <p className="text-green-100 mt-2 text-lg">Your reseller account is ready</p>
           </div>
 
@@ -203,7 +518,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <div className="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-yellow-600" />
-                <h3 className="font-bold text-yellow-800">📌 YOUR LOGIN DETAILS - SAVE THIS!</h3>
+                <h3 className="font-bold text-yellow-800">YOUR LOGIN DETAILS - SAVE THIS!</h3>
               </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between items-center py-2 border-b border-yellow-200">
@@ -243,7 +558,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                 </div>
               </div>
               <p className="text-xs text-yellow-700 mt-4 text-center">
-                ⚠️ Your details are saved on this device. You can come back to this page anytime to view them.
+                Your details are saved on this device. You can come back to this page anytime to view them.
               </p>
             </div>
 
@@ -253,7 +568,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                 <Zap className="w-5 h-5" />
                 How to Start Earning Money (4 Easy Steps)
               </h3>
-              
+
               <div className="space-y-5">
                 {/* Step 1 - Login */}
                 <div className="flex gap-4">
@@ -292,10 +607,10 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                     </p>
                     <div className="bg-white rounded-xl p-4 border border-blue-200">
                       <p className="text-sm text-gray-600">
-                        In your dashboard, click <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Wallet</span> → <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Deposit</span>
+                        In your dashboard, click <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Wallet</span> &rarr; <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Deposit</span>
                       </p>
                       <p className="text-sm text-gray-600 mt-2">
-                        Add money via Mobile Money. This is what you'll use to buy data for your customers.
+                        Add money via Mobile Money. This is what you&apos;ll use to buy data for your customers.
                       </p>
                     </div>
                   </div>
@@ -311,10 +626,10 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                     </p>
                     <div className="bg-white rounded-xl p-4 border border-blue-200">
                       <p className="text-sm text-gray-600">
-                        Go to <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Products</span> → <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Pricing</span>
+                        Go to <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Products</span> &rarr; <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold">Pricing</span>
                       </p>
                       <p className="text-sm text-green-600 font-medium mt-2">
-                        💡 Set your prices HIGHER than buying price = Your Profit!
+                        Set your prices HIGHER than buying price = Your Profit!
                       </p>
                     </div>
                   </div>
@@ -336,7 +651,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                           {copied === 'share' ? <CheckCircle className="w-4 h-4 text-green-700" /> : <Copy className="w-4 h-4 text-green-700" />}
                         </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">📱 WhatsApp, Facebook, Instagram, TikTok, etc.</p>
+                      <p className="text-xs text-gray-500 mt-2">WhatsApp, Facebook, Instagram, TikTok, etc.</p>
                     </div>
                   </div>
                 </div>
@@ -347,29 +662,29 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-5 border border-green-200">
               <h3 className="font-bold text-green-800 mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
-                💰 How You Make Money (Example)
+                How You Make Money (Example)
               </h3>
               <div className="bg-white rounded-xl p-4 border border-green-200">
                 <div className="grid grid-cols-3 gap-4 text-center mb-4">
                   <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-xs text-gray-500 mb-1">You Buy At</p>
-                    <p className="text-2xl font-bold text-gray-900">GH₵4</p>
+                    <p className="text-2xl font-bold text-gray-900">GH&#x20B5;4</p>
                     <p className="text-xs text-gray-400">1GB MTN</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-xs text-gray-500 mb-1">You Sell At</p>
-                    <p className="text-2xl font-bold text-gray-900">GH₵5</p>
+                    <p className="text-2xl font-bold text-gray-900">GH&#x20B5;5</p>
                     <p className="text-xs text-gray-400">Your Price</p>
                   </div>
                   <div className="bg-green-100 rounded-lg p-3">
                     <p className="text-xs text-green-600 mb-1">Your Profit</p>
-                    <p className="text-2xl font-bold text-green-600">GH₵1</p>
+                    <p className="text-2xl font-bold text-green-600">GH&#x20B5;1</p>
                     <p className="text-xs text-green-500">Per Sale</p>
                   </div>
                 </div>
                 <div className="bg-green-600 text-white rounded-lg p-3 text-center">
                   <p className="text-sm">
-                    Sell <span className="font-bold">50 bundles/day</span> = <span className="font-bold text-xl">GH₵50/day</span> = <span className="font-bold text-xl">GH₵1,500/month!</span> 🚀
+                    Sell <span className="font-bold">50 bundles/day</span> = <span className="font-bold text-xl">GH&#x20B5;50/day</span> = <span className="font-bold text-xl">GH&#x20B5;1,500/month!</span>
                   </p>
                 </div>
               </div>
@@ -395,7 +710,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             </div>
 
             <p className="text-center text-xs text-gray-400">
-              📸 Screenshot this page! Your login details are saved on this device.
+              Screenshot this page! Your login details are saved on this device.
             </p>
           </div>
         </div>
@@ -417,7 +732,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <CheckCircle className="w-6 h-6 text-green-600" />
             <h3 className="font-bold text-green-800 text-lg">Your Reseller Account</h3>
           </div>
-          
+
           <div className="bg-white rounded-xl p-4 border border-green-200 space-y-3 mb-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-500 text-sm">Store Name:</span>
@@ -455,10 +770,10 @@ const API_BASE = 'https://api.datamartgh.shop/api';
           </div>
 
           <div className="flex gap-3">
-            <a 
-              href="https://agent.cheapdata.shop" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://agent.cheapdata.shop"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-xl transition"
             >
               Login to Dashboard
@@ -485,7 +800,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
           <div className="bg-gradient-to-br from-green-600 to-emerald-700 text-white rounded-3xl p-8 mb-8">
             <div className="flex items-center gap-3 mb-4">
               {store?.storeLogo ? (
-                <img src={store.storeLogo} alt={store.storeName} className="w-12 h-12 rounded-xl object-cover" />
+                <Image src={store.storeLogo} alt={store.storeName} width={48} height={48} className="w-12 h-12 rounded-xl object-cover" />
               ) : (
                 <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                   <Store className="w-6 h-6" />
@@ -505,7 +820,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <div className="flex items-center gap-4">
               <div className="bg-white/20 rounded-xl px-4 py-2">
                 <p className="text-green-200 text-xs">Activation Fee</p>
-                <p className="text-2xl font-bold">{isFree ? 'FREE' : `GH₵${activationFee}`}</p>
+                <p className="text-2xl font-bold">{isFree ? 'FREE' : `GH\u20B5${activationFee}`}</p>
               </div>
               <button
                 onClick={() => setStep(2)}
@@ -549,7 +864,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
             <h3 className="font-semibold text-gray-900 mb-6">How It Works</h3>
             <div className="grid md:grid-cols-4 gap-4">
               {[
-                { step: 1, title: 'Sign Up', desc: 'Create your reseller account' },
+                { step: 1, title: 'Sign Up', desc: isFree ? 'Create your reseller account' : 'Register & pay activation fee' },
                 { step: 2, title: 'Fund Wallet', desc: 'Add money to your wallet' },
                 { step: 3, title: 'Share Link', desc: 'Share your shop with customers' },
                 { step: 4, title: 'Earn Money', desc: 'Make profit on every sale' }
@@ -572,7 +887,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
               <ArrowRight className="w-5 h-5" />
             </button>
             <p className="text-gray-500 text-sm mt-3">
-              {isFree ? 'No activation fee required' : `One-time activation fee of GH₵${activationFee}`}
+              {isFree ? 'No activation fee required' : `One-time activation fee of GH\u20B5${activationFee}`}
             </p>
           </div>
         </>
@@ -588,6 +903,12 @@ const API_BASE = 'https://api.datamartgh.shop/api';
               </button>
               <h1 className="text-2xl font-bold">Create Your Reseller Account</h1>
               <p className="text-green-200 mt-1">Fill in your details to get started</p>
+              {!isFree && (
+                <div className="mt-3 bg-white/20 rounded-xl px-4 py-2 inline-flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span className="text-sm">Activation fee: <strong>GH&#x20B5;{activationFee}</strong> (paid after form)</span>
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -727,23 +1048,47 @@ const API_BASE = 'https://api.datamartgh.shop/api';
                 {submitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Creating Your Store...
+                    {isFree ? 'Creating Your Store...' : 'Preparing Payment...'}
                   </>
                 ) : (
                   <>
-                    Create My Store
-                    <ArrowRight className="w-5 h-5" />
+                    {isFree ? (
+                      <>
+                        Create My Store
+                        <ArrowRight className="w-5 h-5" />
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-5 h-5" />
+                        Register & Pay GH&#x20B5;{activationFee}
+                      </>
+                    )}
                   </>
                 )}
               </button>
 
               <p className="text-center text-xs text-gray-500">
-                By creating an account, you agree to our terms and conditions.
+                {isFree
+                  ? 'By creating an account, you agree to our terms and conditions.'
+                  : `You will be redirected to pay GH\u20B5${activationFee} activation fee via Mobile Money or Card.`
+                }
               </p>
             </form>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
+      </div>
+    }>
+      <JoinPageContent />
+    </Suspense>
   );
 }

@@ -227,13 +227,17 @@ export default function AnnouncementPopup({ announcement, style = 'banner', them
   const [closed, setClosed] = useState(false);
 
   useEffect(() => {
-    // Check if announcement should be shown
     if (shouldShowAnnouncement(announcement)) {
-      // Small delay for better UX
-      const timer = setTimeout(() => setVisible(true), 500);
-      return () => clearTimeout(timer);
+      if (style === 'banner') {
+        // Banner is inline content — show immediately to avoid CLS
+        setVisible(true);
+      } else {
+        // Overlays (modal/slide/toast) don't shift layout, small delay is fine
+        const timer = setTimeout(() => setVisible(true), 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [announcement]);
+  }, [announcement, style]);
 
   const handleClose = () => {
     setVisible(false);

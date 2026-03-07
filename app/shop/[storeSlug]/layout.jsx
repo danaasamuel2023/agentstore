@@ -128,7 +128,7 @@ export default async function StoreLayout({ children, params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <StoreLayoutClient>{children}</StoreLayoutClient>
+      <StoreLayoutClient initialStore={store}>{children}</StoreLayoutClient>
     </>
   );
 }

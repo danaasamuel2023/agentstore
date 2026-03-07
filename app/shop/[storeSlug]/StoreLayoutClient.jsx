@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Phone, MessageCircle, Menu, X, Clock, MapPin, Users, Briefcase, Moon, Sun, ExternalLink } from 'lucide-react';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
 import AnnouncementPopup from './components/AnnouncementPopup';
@@ -52,16 +53,18 @@ const isLightColor = (color) => {
   return brightness > 155;
 };
 
-export default function StoreLayoutClient({ children }) {
+export default function StoreLayoutClient({ children, initialStore }) {
   const params = useParams();
   const pathname = usePathname();
-  const [store, setStore] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [store, setStore] = useState(initialStore || null);
+  const [loading, setLoading] = useState(!initialStore);
   const [menuOpen, setMenuOpen] = useState(false);
   const [subAgentEnabled, setSubAgentEnabled] = useState(false);
   const [activationFee, setActivationFee] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
-  const [designSettings, setDesignSettings] = useState(null);
+  const [designSettings, setDesignSettings] = useState(
+    initialStore ? extractDesignSettings(initialStore) : null
+  );
 
   // Initialize dark mode from localStorage
   useEffect(() => {
@@ -81,7 +84,12 @@ export default function StoreLayoutClient({ children }) {
   }, [darkMode]);
 
   useEffect(() => {
-    fetchStore();
+    // If we have initialStore, just do a background refresh
+    if (initialStore) {
+      refreshStoreInBackground();
+    } else {
+      fetchStore();
+    }
     checkSubAgentStatus();
   }, [params.storeSlug]);
 
@@ -102,9 +110,26 @@ export default function StoreLayoutClient({ children }) {
     setMenuOpen(false);
   }, [pathname]);
 
+  const refreshStoreInBackground = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/agent-stores/store/${params.storeSlug}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        setStore(data.data);
+        const newDesignSettings = extractDesignSettings(data.data);
+        setDesignSettings(newDesignSettings);
+        setCachedDesign(params.storeSlug, newDesignSettings);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
   const fetchStore = async () => {
     try {
-      // Check for cached design settings first (1 hour cache)
       const cachedDesign = getCachedDesign(params.storeSlug);
       if (cachedDesign) {
         setDesignSettings(cachedDesign);
@@ -114,13 +139,9 @@ export default function StoreLayoutClient({ children }) {
       const data = await res.json();
       if (data.status === 'success') {
         setStore(data.data);
-
-        // Extract and cache design settings
         const newDesignSettings = extractDesignSettings(data.data);
         setDesignSettings(newDesignSettings);
         setCachedDesign(params.storeSlug, newDesignSettings);
-
-        // Store slug for other pages
         if (typeof window !== 'undefined') {
           localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
         }
@@ -243,7 +264,7 @@ export default function StoreLayoutClient({ children }) {
             {/* Logo & Store Name */}
             <Link href={`/shop/${params.storeSlug}`} className="flex items-center gap-3">
               {store.storeLogo ? (
-                <img src={store.storeLogo} alt={store.storeName} className="h-10 w-10 rounded-xl object-cover" />
+                <Image src={store.storeLogo} alt={store.storeName} width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
               ) : (
                 <div
                   className="h-10 w-10 rounded-xl flex items-center justify-center"
@@ -433,7 +454,7 @@ export default function StoreLayoutClient({ children }) {
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-4">
                 {store.storeLogo ? (
-                  <img src={store.storeLogo} alt={store.storeName} className="h-10 w-10 rounded-xl object-cover" />
+                  <Image src={store.storeLogo} alt={store.storeName} width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
                 ) : (
                   <div
                     className="h-10 w-10 rounded-xl flex items-center justify-center"
