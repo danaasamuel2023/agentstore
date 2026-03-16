@@ -45,7 +45,7 @@ function PaymentVerifyContent() {
       setReference(ref);
 
       const res = await fetch(
-        `${API_BASE}/agent-store/stores/${params.storeSlug}/payment/verify?reference=${ref}`,
+        `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${ref}`,
         { headers: { 'Accept': 'application/json' } }
       );
 
@@ -77,7 +77,7 @@ function PaymentVerifyContent() {
 
   const fetchStore = async () => {
     try {
-      const res = await fetch(`${API_BASE}/agent-store/store/${params.storeSlug}`);
+      const res = await fetch(`${API_BASE}/v1/agent-stores/store/${params.storeSlug}`);
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) return;
       
