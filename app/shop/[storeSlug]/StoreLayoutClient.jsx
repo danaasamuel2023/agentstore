@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Phone, MessageCircle, Menu, X, Clock, MapPin, Users, Briefcase, Moon, Sun, ExternalLink } from 'lucide-react';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
 import AnnouncementPopup from './components/AnnouncementPopup';
+import PromoClaimButton from './components/PromoClaimButton';
 
 const API_BASE = 'https://api.datamartgh.shop';
 
@@ -575,6 +576,25 @@ export default function StoreLayoutClient({ children, initialStore }) {
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></span>
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full"></span>
         </a>
+      )}
+
+      {/* Agent Promo Claim Button */}
+      <PromoClaimButton storeSlug={params.storeSlug} />
+
+      {/* Rezolv Live Chat Widget */}
+      {store?.rezolv?.enabled && store?.rezolv?.apiKey && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.REZOLV_CONFIG = {
+                apiKey: "${store.rezolv.apiKey}"
+              };
+            `
+          }}
+        />
+      )}
+      {store?.rezolv?.enabled && store?.rezolv?.apiKey && (
+        <script src="https://api.rezolv.dev/widget.js" async />
       )}
 
       {/* Animation Styles */}
