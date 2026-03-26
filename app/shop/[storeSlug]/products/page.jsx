@@ -380,18 +380,11 @@ function ProductsContent() {
     setToast({ show: true, message, type });
   };
 
-  const handleBuy = (product, phone, name) => {
-    setConfirmModal({ show: true, product, phone, name });
-  };
-
-  const handleConfirm = async () => {
-    const { product, phone, name } = confirmModal;
+  const handleBuy = async (product, phone, name) => {
     setIsProcessing(true);
-
     try {
       const cleanPhone = phone.replace(/[\s-]/g, '');
 
-      // Step 1: Initialize payment (creates transaction + gets reference)
       const initRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -408,20 +401,16 @@ function ProductsContent() {
 
       if (initData.status !== 'success') {
         showToast(initData.message || 'Failed to initialize payment', 'error');
-        setConfirmModal({ show: false, product: null, phone: '', name: '' });
         return;
       }
 
       const { reference, transactionId, authorizationUrl } = initData.data;
-
-      // Step 2: Show payment method choice modal
-      setConfirmModal({ show: false, product: null, phone: '', name: '' });
+      setMomoPayPhone('');
       setPaymentMethodModal({
         show: true, product, phone: cleanPhone, name,
         reference, transactionId, authorizationUrl
       });
     } catch (error) {
-      setConfirmModal({ show: false, product: null, phone: '', name: '' });
       showToast('Something went wrong', 'error');
     } finally {
       setIsProcessing(false);
@@ -580,25 +569,32 @@ function ProductsContent() {
       )}
       
       {/* Confirm Modal */}
-      <ConfirmModal
-        isOpen={confirmModal.show}
-        onClose={() => setConfirmModal({ show: false, product: null, phone: '', name: '' })}
-        onConfirm={handleConfirm}
-        product={confirmModal.product}
-        phoneNumber={confirmModal.phone}
-        isProcessing={isProcessing}
-      />
-
       {/* Payment Method Choice Modal */}
       {paymentMethodModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6">
-            <div className="text-center mb-5">
-              <h3 className="text-lg font-bold text-gray-900">Choose Payment Method</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                {paymentMethodModal.product?.capacity}GB {paymentMethodModal.product?.network === 'YELLO' ? 'MTN' : paymentMethodModal.product?.network === 'TELECEL' ? 'Telecel' : 'AirtelTigo'} — GH₵{(paymentMethodModal.product?.isOnSale && paymentMethodModal.product?.salePrice ? paymentMethodModal.product.salePrice : paymentMethodModal.product?.sellingPrice)?.toFixed(2)}
-              </p>
-            </div>
+            {/* Order Summary */}
+            {(() => {
+              const p = paymentMethodModal.product;
+              const price = p?.isOnSale && p?.salePrice ? p.salePrice : p?.sellingPrice;
+              const netName = p?.network === 'YELLO' ? 'MTN' : p?.network === 'TELECEL' ? 'Telecel' : 'AirtelTigo';
+              const netColor = p?.network === 'YELLO' ? 'bg-yellow-400 text-black' : p?.network === 'TELECEL' ? 'bg-red-600 text-white' : 'bg-purple-600 text-white';
+              return (
+                <div className={`rounded-2xl p-4 mb-4 ${netColor}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-black">{p?.capacity}GB</p>
+                      <p className="text-xs opacity-70">{netName} Data Bundle</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black">₵{price?.toFixed(2)}</p>
+                      <p className="text-xs opacity-70">to {paymentMethodModal.phone}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            <h3 className="text-sm font-bold text-gray-900 mb-3 text-center">How would you like to pay?</h3>
 
             <div className="space-y-3">
               {/* Direct MoMo */}
