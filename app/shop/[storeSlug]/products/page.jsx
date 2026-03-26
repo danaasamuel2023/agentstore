@@ -380,41 +380,13 @@ function ProductsContent() {
     setToast({ show: true, message, type });
   };
 
-  const handleBuy = async (product, phone, name) => {
-    setIsProcessing(true);
-    try {
-      const cleanPhone = phone.replace(/[\s-]/g, '');
-
-      const initRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: product._id,
-          phoneNumber: cleanPhone,
-          customerEmail: `customer_${cleanPhone}@datamartgh.shop`,
-          customerName: name,
-          quantity: 1
-        })
-      });
-
-      const initData = await initRes.json();
-
-      if (initData.status !== 'success') {
-        showToast(initData.message || 'Failed to initialize payment', 'error');
-        return;
-      }
-
-      const { reference, transactionId, authorizationUrl } = initData.data;
-      setMomoPayPhone('');
-      setPaymentMethodModal({
-        show: true, product, phone: cleanPhone, name,
-        reference, transactionId, authorizationUrl
-      });
-    } catch (error) {
-      showToast('Something went wrong', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleBuy = (product, phone, name) => {
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    setMomoPayPhone('');
+    setPaymentMethodModal({
+      show: true, product, phone: cleanPhone, name,
+      reference: '', transactionId: '', authorizationUrl: ''
+    });
   };
 
   const handleDirectCharge = async () => {
@@ -422,16 +394,37 @@ function ProductsContent() {
       showToast('Please enter a valid MoMo number', 'error');
       return;
     }
-    const { transactionId, reference, authorizationUrl } = paymentMethodModal;
+    const { product, phone, name } = paymentMethodModal;
     const cleanMomoPhone = momoPayPhone.replace(/[\s\-]/g, '');
     setIsProcessing(true);
     setPaymentMethodModal(prev => ({ ...prev, show: false }));
 
     try {
+      // Step 1: Initialize (creates transaction, skips Paystack redirect)
+      const initRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id,
+          phoneNumber: phone,
+          customerEmail: `customer_${phone}@datamartgh.shop`,
+          customerName: name,
+          quantity: 1,
+          paymentType: 'momo_direct'
+        })
+      });
+
+      const initData = await initRes.json();
+      if (initData.status !== 'success') {
+        showToast(initData.message || 'Failed to create order', 'error');
+        return;
+      }
+
+      // Step 2: Direct MoMo charge
       const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactionId, reference, momoPhone: cleanMomoPhone })
+        body: JSON.stringify({ transactionId: initData.data.transactionId, momoPhone: cleanMomoPhone })
       });
 
       const chargeData = await chargeRes.json();
@@ -454,7 +447,6 @@ function ProductsContent() {
         }
       }
 
-      // Charge failed
       showToast(chargeData.message || 'Direct charge failed. Try Paystack checkout.', 'error');
     } catch {
       showToast('Direct charge failed. Try Paystack checkout.', 'error');
@@ -463,13 +455,34 @@ function ProductsContent() {
     }
   };
 
-  const handlePaystackRedirect = () => {
-    const { authorizationUrl } = paymentMethodModal;
+  const handlePaystackRedirect = async () => {
+    const { product, phone, name } = paymentMethodModal;
+    setIsProcessing(true);
     setPaymentMethodModal(prev => ({ ...prev, show: false }));
-    if (authorizationUrl) {
-      window.location.href = authorizationUrl;
-    } else {
-      showToast('Payment URL not available', 'error');
+
+    try {
+      const initRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id,
+          phoneNumber: phone,
+          customerEmail: `customer_${phone}@datamartgh.shop`,
+          customerName: name,
+          quantity: 1
+        })
+      });
+
+      const initData = await initRes.json();
+      if (initData.status === 'success' && initData.data.authorizationUrl) {
+        window.location.href = initData.data.authorizationUrl;
+      } else {
+        showToast(initData.message || 'Failed to initialize payment', 'error');
+      }
+    } catch {
+      showToast('Something went wrong', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
