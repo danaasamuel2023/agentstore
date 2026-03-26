@@ -322,6 +322,7 @@ function ProductsContent() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
   const [paymentMethodModal, setPaymentMethodModal] = useState({ show: false, product: null, phone: '', name: '', reference: '', transactionId: '', authorizationUrl: '' });
+  const [momoPayPhone, setMomoPayPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [otpModal, setOtpModal] = useState({ show: false, reference: '', message: '' });
   const [otp, setOtp] = useState('');
@@ -428,7 +429,12 @@ function ProductsContent() {
   };
 
   const handleDirectCharge = async () => {
-    const { transactionId, reference, phone, authorizationUrl } = paymentMethodModal;
+    if (!momoPayPhone || momoPayPhone.replace(/[\s\-]/g, '').length < 10) {
+      showToast('Please enter a valid MoMo number', 'error');
+      return;
+    }
+    const { transactionId, reference, authorizationUrl } = paymentMethodModal;
+    const cleanMomoPhone = momoPayPhone.replace(/[\s\-]/g, '');
     setIsProcessing(true);
     setPaymentMethodModal(prev => ({ ...prev, show: false }));
 
@@ -436,7 +442,7 @@ function ProductsContent() {
       const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactionId, reference, momoPhone: phone })
+        body: JSON.stringify({ transactionId, reference, momoPhone: cleanMomoPhone })
       });
 
       const chargeData = await chargeRes.json();
@@ -596,21 +602,39 @@ function ProductsContent() {
 
             <div className="space-y-3">
               {/* Direct MoMo */}
-              <button
-                onClick={handleDirectCharge}
-                disabled={isProcessing}
-                className="w-full p-4 rounded-2xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 transition text-left flex items-center gap-4 disabled:opacity-50"
-              >
-                <div className="w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center flex-shrink-0">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
-                  </svg>
+              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center flex-shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">Pay with MoMo</p>
+                    <p className="text-[10px] text-gray-500">Charge your MoMo directly — no redirect</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold text-gray-900">Pay with MoMo</p>
-                  <p className="text-xs text-gray-500">Charge your MoMo directly — no redirect</p>
-                </div>
-              </button>
+                <input
+                  type="tel"
+                  placeholder="Enter MoMo number (e.g. 0241234567)"
+                  value={momoPayPhone}
+                  onChange={(e) => setMomoPayPhone(e.target.value.replace(/[^\d\s\-]/g, ''))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white text-sm font-medium focus:outline-none focus:border-amber-500 mb-3"
+                />
+                <button
+                  onClick={handleDirectCharge}
+                  disabled={isProcessing || !momoPayPhone.replace(/[\s\-]/g, '')}
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-bold text-sm rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin" /> Charging...</> : 'Pay Now'}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200"></div>
+                <span className="text-xs text-gray-400 font-medium">OR</span>
+                <div className="flex-1 h-px bg-gray-200"></div>
+              </div>
 
               {/* Paystack Checkout */}
               <button
@@ -618,14 +642,14 @@ function ProductsContent() {
                 disabled={isProcessing}
                 className="w-full p-4 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition text-left flex items-center gap-4 disabled:opacity-50"
               >
-                <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900">Paystack Checkout</p>
-                  <p className="text-xs text-gray-500">Card, Bank, USSD, QR, MoMo & more</p>
+                  <p className="font-bold text-gray-900 text-sm">Paystack Checkout</p>
+                  <p className="text-[10px] text-gray-500">Card, Bank, USSD, QR, MoMo & more</p>
                 </div>
               </button>
             </div>
