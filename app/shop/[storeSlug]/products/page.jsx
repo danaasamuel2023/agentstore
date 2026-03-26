@@ -321,6 +321,7 @@ function ProductsContent() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
+  const [paymentMethodModal, setPaymentMethodModal] = useState({ show: false, product: null, phone: '', name: '', reference: '', transactionId: '', authorizationUrl: '' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [otpModal, setOtpModal] = useState({ show: false, reference: '', message: '' });
   const [otp, setOtp] = useState('');
@@ -412,55 +413,68 @@ function ProductsContent() {
 
       const { reference, transactionId, authorizationUrl } = initData.data;
 
-      // Step 2: Try direct MoMo charge
-      try {
-        const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transactionId, reference, momoPhone: cleanPhone })
-        });
-
-        const chargeData = await chargeRes.json();
-
-        if (chargeData.status === 'success') {
-          setConfirmModal({ show: false, product: null, phone: '', name: '' });
-
-          if (chargeData.action === 'send_otp') {
-            setOtpModal({ show: true, reference: chargeData.reference, message: chargeData.message });
-            return;
-          }
-
-          if (chargeData.action === 'pending') {
-            setPaymentStatus('pending');
-            setStatusMessage(chargeData.message);
-            pollPaymentStatus(chargeData.reference);
-            return;
-          }
-
-          if (chargeData.action === 'completed') {
-            setPaymentStatus('completed');
-            setStatusMessage('Payment successful! Your order is being processed.');
-            return;
-          }
-        }
-
-        // Charge failed — fallback to redirect
-        if (authorizationUrl) {
-          window.location.href = authorizationUrl;
-        } else {
-          showToast(chargeData.message || 'Payment failed', 'error');
-        }
-      } catch {
-        // Direct charge error — fallback to redirect
-        if (authorizationUrl) {
-          window.location.href = authorizationUrl;
-        }
-      }
+      // Step 2: Show payment method choice modal
+      setConfirmModal({ show: false, product: null, phone: '', name: '' });
+      setPaymentMethodModal({
+        show: true, product, phone: cleanPhone, name,
+        reference, transactionId, authorizationUrl
+      });
     } catch (error) {
       setConfirmModal({ show: false, product: null, phone: '', name: '' });
       showToast('Something went wrong', 'error');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleDirectCharge = async () => {
+    const { transactionId, reference, phone, authorizationUrl } = paymentMethodModal;
+    setIsProcessing(true);
+    setPaymentMethodModal(prev => ({ ...prev, show: false }));
+
+    try {
+      const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId, reference, momoPhone: phone })
+      });
+
+      const chargeData = await chargeRes.json();
+
+      if (chargeData.status === 'success') {
+        if (chargeData.action === 'send_otp') {
+          setOtpModal({ show: true, reference: chargeData.reference, message: chargeData.message });
+          return;
+        }
+        if (chargeData.action === 'pending') {
+          setPaymentStatus('pending');
+          setStatusMessage(chargeData.message);
+          pollPaymentStatus(chargeData.reference);
+          return;
+        }
+        if (chargeData.action === 'completed') {
+          setPaymentStatus('completed');
+          setStatusMessage('Payment successful! Your order is being processed.');
+          return;
+        }
+      }
+
+      // Charge failed
+      showToast(chargeData.message || 'Direct charge failed. Try Paystack checkout.', 'error');
+    } catch {
+      showToast('Direct charge failed. Try Paystack checkout.', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePaystackRedirect = () => {
+    const { authorizationUrl } = paymentMethodModal;
+    setPaymentMethodModal(prev => ({ ...prev, show: false }));
+    if (authorizationUrl) {
+      window.location.href = authorizationUrl;
+    } else {
+      showToast('Payment URL not available', 'error');
     }
   };
 
@@ -568,6 +582,63 @@ function ProductsContent() {
         phoneNumber={confirmModal.phone}
         isProcessing={isProcessing}
       />
+
+      {/* Payment Method Choice Modal */}
+      {paymentMethodModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6">
+            <div className="text-center mb-5">
+              <h3 className="text-lg font-bold text-gray-900">Choose Payment Method</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {paymentMethodModal.product?.capacity}GB {paymentMethodModal.product?.network === 'YELLO' ? 'MTN' : paymentMethodModal.product?.network === 'TELECEL' ? 'Telecel' : 'AirtelTigo'} — GH₵{(paymentMethodModal.product?.isOnSale && paymentMethodModal.product?.salePrice ? paymentMethodModal.product.salePrice : paymentMethodModal.product?.sellingPrice)?.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {/* Direct MoMo */}
+              <button
+                onClick={handleDirectCharge}
+                disabled={isProcessing}
+                className="w-full p-4 rounded-2xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 transition text-left flex items-center gap-4 disabled:opacity-50"
+              >
+                <div className="w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center flex-shrink-0">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Pay with MoMo</p>
+                  <p className="text-xs text-gray-500">Charge your MoMo directly — no redirect</p>
+                </div>
+              </button>
+
+              {/* Paystack Checkout */}
+              <button
+                onClick={handlePaystackRedirect}
+                disabled={isProcessing}
+                className="w-full p-4 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 transition text-left flex items-center gap-4 disabled:opacity-50"
+              >
+                <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Paystack Checkout</p>
+                  <p className="text-xs text-gray-500">Card, Bank, USSD, QR, MoMo & more</p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setPaymentMethodModal(prev => ({ ...prev, show: false }))}
+              className="w-full mt-4 py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* OTP Modal */}
       {otpModal.show && (
