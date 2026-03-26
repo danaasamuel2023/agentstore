@@ -322,6 +322,10 @@ function ProductsContent() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [otpModal, setOtpModal] = useState({ show: false, reference: '', message: '' });
+  const [otp, setOtp] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState(null); // 'pending' | 'completed' | null
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -381,10 +385,12 @@ function ProductsContent() {
   const handleConfirm = async () => {
     const { product, phone, name } = confirmModal;
     setIsProcessing(true);
-    
+
     try {
       const cleanPhone = phone.replace(/[\s-]/g, '');
-      const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
+
+      // Step 1: Initialize payment (creates transaction + gets reference)
+      const initRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -395,14 +401,60 @@ function ProductsContent() {
           quantity: 1
         })
       });
-      
-      const data = await res.json();
-      
-      if (data.status === 'success' && data.data.authorizationUrl) {
-        window.location.href = data.data.authorizationUrl;
-      } else {
+
+      const initData = await initRes.json();
+
+      if (initData.status !== 'success') {
+        showToast(initData.message || 'Failed to initialize payment', 'error');
         setConfirmModal({ show: false, product: null, phone: '', name: '' });
-        showToast(data.message || 'Payment failed', 'error');
+        return;
+      }
+
+      const { reference, transactionId, authorizationUrl } = initData.data;
+
+      // Step 2: Try direct MoMo charge
+      try {
+        const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactionId, reference, momoPhone: cleanPhone })
+        });
+
+        const chargeData = await chargeRes.json();
+
+        if (chargeData.status === 'success') {
+          setConfirmModal({ show: false, product: null, phone: '', name: '' });
+
+          if (chargeData.action === 'send_otp') {
+            setOtpModal({ show: true, reference: chargeData.reference, message: chargeData.message });
+            return;
+          }
+
+          if (chargeData.action === 'pending') {
+            setPaymentStatus('pending');
+            setStatusMessage(chargeData.message);
+            pollPaymentStatus(chargeData.reference);
+            return;
+          }
+
+          if (chargeData.action === 'completed') {
+            setPaymentStatus('completed');
+            setStatusMessage('Payment successful! Your order is being processed.');
+            return;
+          }
+        }
+
+        // Charge failed — fallback to redirect
+        if (authorizationUrl) {
+          window.location.href = authorizationUrl;
+        } else {
+          showToast(chargeData.message || 'Payment failed', 'error');
+        }
+      } catch {
+        // Direct charge error — fallback to redirect
+        if (authorizationUrl) {
+          window.location.href = authorizationUrl;
+        }
       }
     } catch (error) {
       setConfirmModal({ show: false, product: null, phone: '', name: '' });
@@ -410,6 +462,69 @@ function ProductsContent() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSubmitOtp = async () => {
+    if (!otp.trim()) return;
+    setIsProcessing(true);
+    try {
+      const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/submit-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: otp.trim(), reference: otpModal.reference })
+      });
+      const data = await res.json();
+      setOtpModal({ show: false, reference: '', message: '' });
+      setOtp('');
+
+      if (data.status === 'success') {
+        if (data.action === 'completed') {
+          setPaymentStatus('completed');
+          setStatusMessage('Payment successful! Your order is being processed.');
+        } else if (data.action === 'pending') {
+          setPaymentStatus('pending');
+          setStatusMessage(data.message || 'Please approve the payment on your phone');
+          pollPaymentStatus(otpModal.reference);
+        }
+      } else {
+        showToast(data.message || 'OTP verification failed', 'error');
+      }
+    } catch {
+      showToast('Failed to verify OTP', 'error');
+      setOtpModal({ show: false, reference: '', message: '' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const pollPaymentStatus = (reference) => {
+    let attempts = 0;
+    const maxAttempts = 30; // 30 * 5s = 2.5 minutes
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/check-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reference })
+        });
+        const data = await res.json();
+        if (data.data?.paymentStatus === 'success') {
+          clearInterval(interval);
+          setPaymentStatus('completed');
+          setStatusMessage('Payment successful! Your order is being processed.');
+        } else if (data.data?.paymentStatus === 'failed') {
+          clearInterval(interval);
+          setPaymentStatus(null);
+          showToast('Payment failed. Please try again.', 'error');
+        }
+      } catch {}
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        setPaymentStatus(null);
+        showToast('Payment verification timed out. Check your order status.', 'error');
+      }
+    }, 5000);
   };
 
   const networks = ['all', ...new Set(products.map(p => p.network))];
@@ -453,7 +568,82 @@ function ProductsContent() {
         phoneNumber={confirmModal.phone}
         isProcessing={isProcessing}
       />
-      
+
+      {/* OTP Modal */}
+      {otpModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6">
+            <div className="text-center mb-4">
+              <div className="w-16 h-16 mx-auto mb-3 bg-blue-100 rounded-full flex items-center justify-center">
+                <Shield className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Enter OTP</h3>
+              <p className="text-sm text-gray-500 mt-1">{otpModal.message || 'Enter the code sent to your phone'}</p>
+            </div>
+            <input
+              type="text"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="Enter OTP code"
+              maxLength={6}
+              autoFocus
+              className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 text-center text-2xl font-bold tracking-[0.3em] focus:border-blue-500 focus:outline-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setOtpModal({ show: false, reference: '', message: '' }); setOtp(''); }}
+                disabled={isProcessing}
+                className="flex-1 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitOtp}
+                disabled={isProcessing || !otp.trim()}
+                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</> : 'Verify'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Status Overlay */}
+      {paymentStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 text-center">
+            {paymentStatus === 'pending' ? (
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Approve Payment</h3>
+                <p className="text-sm text-gray-500 mb-4">{statusMessage || 'Please approve the payment on your phone'}</p>
+                <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Waiting for confirmation...
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                  <Zap className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Payment Successful!</h3>
+                <p className="text-sm text-gray-500 mb-4">{statusMessage}</p>
+                <button
+                  onClick={() => setPaymentStatus(null)}
+                  className="w-full py-3 bg-green-600 text-white font-bold rounded-xl"
+                >
+                  Done
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Data Bundles</h1>
