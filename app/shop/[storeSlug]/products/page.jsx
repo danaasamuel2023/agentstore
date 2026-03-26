@@ -615,7 +615,7 @@ function ProductsContent() {
                   placeholder="Enter MoMo number (e.g. 0241234567)"
                   value={momoPayPhone}
                   onChange={(e) => setMomoPayPhone(e.target.value.replace(/[^\d\s\-]/g, ''))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white text-sm font-medium focus:outline-none focus:border-amber-500 mb-3"
+                  className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white text-gray-900 text-sm font-medium placeholder-gray-400 focus:outline-none focus:border-amber-500 mb-3"
                 />
                 <button
                   onClick={handleDirectCharge}
