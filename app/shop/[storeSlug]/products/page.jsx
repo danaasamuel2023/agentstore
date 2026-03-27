@@ -380,13 +380,32 @@ function ProductsContent() {
     setToast({ show: true, message, type });
   };
 
-  const handleBuy = (product, phone, name) => {
-    const cleanPhone = phone.replace(/[\s-]/g, '');
-    setMomoPayPhone('');
-    setPaymentMethodModal({
-      show: true, product, phone: cleanPhone, name,
-      reference: '', transactionId: '', authorizationUrl: ''
-    });
+  const handleBuy = async (product, phone, name) => {
+    setIsProcessing(true);
+    try {
+      const cleanPhone = phone.replace(/[\s-]/g, '');
+      const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product._id,
+          phoneNumber: cleanPhone,
+          customerEmail: `customer_${cleanPhone}@datamartgh.shop`,
+          customerName: name,
+          quantity: 1
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success' && data.data.authorizationUrl) {
+        window.location.href = data.data.authorizationUrl;
+      } else {
+        showToast(data.message || 'Payment failed', 'error');
+      }
+    } catch (error) {
+      showToast('Something went wrong', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleDirectCharge = async () => {
