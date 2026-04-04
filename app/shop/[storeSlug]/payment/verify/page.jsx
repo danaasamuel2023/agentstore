@@ -3,9 +3,9 @@ import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  CheckCircle, XCircle, Clock, AlertCircle, 
-  Loader2, Package, Phone, Home, ShoppingBag, 
-  MessageCircle, Copy, Download
+  CheckCircle, XCircle, Clock, AlertCircle,
+  Loader2, Package, Phone, Home, ShoppingBag,
+  MessageCircle, Copy, RefreshCw, Wifi, Shield
 } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
@@ -13,13 +13,15 @@ const API_BASE = 'https://api.datamartgh.shop/api';
 function PaymentVerifyContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  
+
   const [status, setStatus] = useState('loading');
   const [transaction, setTransaction] = useState(null);
   const [store, setStore] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [reference, setReference] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let ref = searchParams.get('reference') || searchParams.get('trxref');
@@ -27,30 +29,24 @@ function PaymentVerifyContent() {
       ref = ref.split(':')[0].trim();
       setReference(ref);
     }
-
     verifyPayment();
     fetchStore();
   }, []);
 
-  // Auto-retry verification after 5 seconds if still in processing state
   useEffect(() => {
-    if (status === 'processing' && reference) {
-      const retryTimer = setTimeout(() => {
+    if (status === 'processing' && reference && retryCount < 3) {
+      const timer = setTimeout(() => {
+        setRetryCount(prev => prev + 1);
         verifyPayment();
       }, 5000);
-      return () => clearTimeout(retryTimer);
+      return () => clearTimeout(timer);
     }
-  }, [status]);
+  }, [status, retryCount]);
 
   const verifyPayment = async () => {
     try {
       let ref = searchParams.get('reference') || searchParams.get('trxref');
-      
-      if (!ref) {
-        setStatus('processing');
-        return;
-      }
-
+      if (!ref) { setStatus('processing'); return; }
       ref = ref.split(':')[0].trim();
       setReference(ref);
 
@@ -58,30 +54,21 @@ function PaymentVerifyContent() {
         `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${ref}`,
         { headers: { 'Accept': 'application/json' } }
       );
-
       const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        setStatus('processing');
-        return;
-      }
+      if (!contentType || !contentType.includes('application/json')) { setStatus('processing'); return; }
 
       const data = await res.json();
-
       if (data.status === 'success') {
         setStatus('success');
         setTransaction(data.data);
-        if (data.data.transactionId) {
-          localStorage.setItem('lastTransactionId', data.data.transactionId);
-        }
+        if (data.data.transactionId) localStorage.setItem('lastTransactionId', data.data.transactionId);
       } else if (res.status === 404 || data.message?.includes('not found')) {
         setStatus('processing');
       } else {
         setStatus('failed');
         setError(data.message || 'Payment verification failed');
       }
-    } catch (err) {
-      console.error('Verification error:', err);
-      // Try to check payment status as fallback
+    } catch {
       try {
         const ref = searchParams.get('reference') || searchParams.get('trxref');
         if (ref) {
@@ -90,11 +77,9 @@ function PaymentVerifyContent() {
             { headers: { 'Accept': 'application/json' } }
           );
           if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            if (statusData.status === 'success' && statusData.data?.paymentStatus === 'completed') {
-              setStatus('success');
-              setTransaction(statusData.data);
-              return;
+            const d = await statusRes.json();
+            if (d.status === 'success' && d.data?.paymentStatus === 'completed') {
+              setStatus('success'); setTransaction(d.data); return;
             }
           }
         }
@@ -106,21 +91,14 @@ function PaymentVerifyContent() {
   const fetchStore = async () => {
     try {
       const res = await fetch(`${API_BASE}/v1/agent-stores/store/${params.storeSlug}`);
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) return;
-      
+      const ct = res.headers.get('content-type');
+      if (!ct || !ct.includes('application/json')) return;
       const data = await res.json();
-      if (data.status === 'success') {
-        setStore(data.data);
-      }
-    } catch (err) {
-      console.error('Error fetching store:', err);
-    }
+      if (data.status === 'success') setStore(data.data);
+    } catch {}
   };
 
-  const [checking, setChecking] = useState(false);
-
-  const copyToClipboard = (text) => {
+  const copy = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -128,6 +106,7 @@ function PaymentVerifyContent() {
 
   const recheckPayment = async () => {
     setChecking(true);
+    setError(null);
     try {
       const ref = reference || searchParams.get('reference') || searchParams.get('trxref');
       if (!ref) return;
@@ -137,396 +116,396 @@ function PaymentVerifyContent() {
         `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${cleanRef}`,
         { headers: { 'Accept': 'application/json' } }
       );
-
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
+      const ct = res.headers.get('content-type');
+      if (ct && ct.includes('application/json')) {
         const data = await res.json();
-        if (data.status === 'success') {
-          setStatus('success');
-          setTransaction(data.data);
-          return;
-        }
+        if (data.status === 'success') { setStatus('success'); setTransaction(data.data); return; }
       }
-
-      // If verify didn't return success, check if the order was already created
       const statusRes = await fetch(
         `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/status-by-ref/${cleanRef}`,
         { headers: { 'Accept': 'application/json' } }
       );
       if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        if (statusData.status === 'success' && statusData.data?.paymentStatus === 'completed') {
-          setStatus('success');
-          setTransaction(statusData.data);
-          return;
+        const d = await statusRes.json();
+        if (d.status === 'success' && d.data?.paymentStatus === 'completed') {
+          setStatus('success'); setTransaction(d.data); return;
         }
       }
-
-      setError('Payment is still being processed. Please wait a moment and try again.');
-    } catch (err) {
-      setError('Unable to check payment status. Please try again.');
+      setError('Still processing. Please wait a moment and try again.');
+    } catch {
+      setError('Connection issue. Please check your internet and try again.');
     } finally {
       setChecking(false);
     }
   };
 
-  // Loading
+  const storeName = store?.storeName || 'Store';
+  const storeColor = store?.theme?.primaryColor || '#2563eb';
+  const whatsapp = store?.contactInfo?.whatsappNumber;
+
+  // ── Loading ──
   if (status === 'loading') {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-gray-400 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900">Verifying Payment</h2>
-          <p className="text-gray-500 text-sm mt-1">Please wait...</p>
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full border-4 border-gray-200" />
+            <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 animate-spin" />
+            <Shield className="w-8 h-8 text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Verifying Payment</h2>
+          <p className="text-gray-500 text-sm">Securely confirming with Paystack...</p>
         </div>
       </div>
     );
   }
 
-  // Processing
+  // ── Processing ──
   if (status === 'processing') {
     return (
-      <div className="max-w-md mx-auto">
-        <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-blue-500 p-8 text-center text-white">
-            <div className="w-16 h-16 mx-auto mb-4 relative">
-              <div className="absolute inset-0 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-              <Clock className="w-8 h-8 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-            <h1 className="text-2xl font-bold">Payment Received!</h1>
-            <p className="text-blue-100 mt-1">Your order is being processed</p>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            {reference && (
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Payment Reference</p>
-                    <p className="font-mono font-semibold text-gray-900 text-sm">{reference}</p>
-                  </div>
-                  <button
-                    onClick={() => copyToClipboard(reference)}
-                    className="p-2 hover:bg-gray-200 rounded-lg transition"
-                  >
-                    {copied ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-gray-400" />}
-                  </button>
-                </div>
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-white p-4 flex items-start justify-center pt-8 sm:pt-16">
+        <div className="w-full max-w-sm">
+          {/* Animated header card */}
+          <div className="relative bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-8 text-center text-white mb-6 overflow-hidden shadow-xl shadow-blue-600/20">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+            <div className="relative">
+              <div className="w-16 h-16 mx-auto mb-4 relative">
+                <div className="absolute inset-0 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                <Clock className="w-7 h-7 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
               </div>
-            )}
-
-            <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-green-800">Payment Successful!</p>
-                  <p className="text-green-700 text-sm mt-1">
-                    We've received your payment and your data bundle is being processed.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-              <h3 className="font-medium text-blue-800 mb-3 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                What happens next?
-              </h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-blue-700 text-sm">
-                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
-                  We're processing your order right now
-                </li>
-                <li className="flex items-start gap-2 text-blue-700 text-sm">
-                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
-                  Your data bundle will be delivered within <strong>10-60 minutes</strong>
-                </li>
-                <li className="flex items-start gap-2 text-blue-700 text-sm">
-                  <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
-                  You'll receive an <strong>SMS confirmation</strong> once delivered
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={recheckPayment}
-              disabled={checking}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl mb-3 transition"
-            >
-              {checking ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Checking with Paystack...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  Check Payment Status
-                </>
-              )}
-            </button>
-
-            {error && status === 'processing' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
-                <p className="text-amber-700 text-sm text-center">{error}</p>
-              </div>
-            )}
-
-            {store?.contactInfo?.whatsappNumber && (
-              <a
-                href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}?text=Hi, I just made a payment and want to confirm my order. Reference: ${reference || 'N/A'}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl mb-4 transition"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Contact Support
-              </a>
-            )}
-
-            <div className="flex gap-3">
-              <Link
-                href={`/shop/${params.storeSlug}`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
-              >
-                <Home className="w-4 h-4" />
-                Home
-              </Link>
-              <Link
-                href={`/shop/${params.storeSlug}/products`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Buy More
-              </Link>
+              <h1 className="text-2xl font-bold mb-1">Payment Received</h1>
+              <p className="text-blue-200 text-sm">Your order is being processed</p>
             </div>
           </div>
-        </div>
 
-        {store && (
-          <p className="text-center text-gray-500 text-sm mt-6">
-            Thank you for shopping with <span className="font-medium text-gray-700">{store.storeName}</span>
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  // Success
-  if (status === 'success') {
-    return (
-      <div className="max-w-md mx-auto">
-        <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-green-500 p-8 text-center text-white">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-10 h-10" />
-            </div>
-            <h1 className="text-2xl font-bold">Payment Successful!</h1>
-            <p className="text-green-100 mt-1">Your data bundle has been confirmed</p>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            {/* Transaction ID */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
-                  <p className="font-mono font-semibold text-gray-900">{transaction?.transactionId}</p>
-                </div>
-                <button
-                  onClick={() => copyToClipboard(transaction?.transactionId)}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition"
-                >
-                  {copied ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-gray-400" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Order Summary */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-blue-50 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs text-blue-600 font-medium">Product</span>
-                </div>
-                <p className="font-bold text-gray-900">{transaction?.product?.capacity}GB</p>
-                <p className="text-xs text-gray-500">
-                  {transaction?.product?.network === 'YELLO' ? 'MTN' : transaction?.product?.network}
-                </p>
-              </div>
-
-              <div className="bg-green-50 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-green-600 font-medium">Amount Paid</span>
-                </div>
-                <p className="font-bold text-green-600 text-lg">GH₵ {transaction?.amount?.toFixed(2)}</p>
-              </div>
-
-              <div className="bg-purple-50 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Phone className="w-4 h-4 text-purple-500" />
-                  <span className="text-xs text-purple-600 font-medium">Delivery To</span>
-                </div>
-                <p className="font-semibold text-gray-900">{transaction?.phoneNumber}</p>
-              </div>
-
-              <div className="bg-yellow-50 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="w-4 h-4 text-yellow-500" />
-                  <span className="text-xs text-yellow-600 font-medium">Status</span>
-                </div>
-                <p className="font-semibold text-yellow-700">{transaction?.orderStatus || 'Processing'}</p>
-              </div>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-amber-800 text-xs font-medium">Delivery Time</p>
-                  <p className="text-amber-700 text-xs">
-                    Your data will be delivered within 10-60 minutes. You'll receive an SMS confirmation.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {store?.contactInfo?.whatsappNumber && (
-              <a
-                href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}?text=Hi, I need help with order ${transaction?.transactionId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl mb-4 transition"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Contact Support
-              </a>
-            )}
-
-            <div className="flex gap-3">
-              <Link
-                href={`/shop/${params.storeSlug}`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
-              >
-                <Home className="w-4 h-4" />
-                Home
-              </Link>
-              <Link
-                href={`/shop/${params.storeSlug}/products`}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Buy More
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {store && (
-          <p className="text-center text-gray-500 text-sm mt-6">
-            Thank you for shopping with <span className="font-medium text-gray-700">{store.storeName}</span>
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  // Failed
-  return (
-    <div className="max-w-md mx-auto">
-      <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-red-500 p-8 text-center text-white">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <XCircle className="w-10 h-10" />
-          </div>
-          <h1 className="text-2xl font-bold">Payment Failed</h1>
-          <p className="text-red-100 mt-1">{error || "We couldn't process your payment"}</p>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
-            <h3 className="font-medium text-red-800 mb-2">What might have happened?</h3>
-            <ul className="text-red-700 text-sm space-y-1">
-              <li>• Insufficient funds in your account</li>
-              <li>• Payment was cancelled</li>
-              <li>• Network or connection issues</li>
-              <li>• Payment gateway timeout</li>
-            </ul>
-          </div>
-
+          {/* Reference */}
           {reference && (
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Payment Reference</p>
-                  <p className="font-mono font-semibold text-gray-900 text-sm">{reference}</p>
-                </div>
-                <button
-                  onClick={() => copyToClipboard(reference)}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition"
-                >
-                  {copied ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-gray-400" />}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Payment Reference</p>
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                <code className="text-sm font-semibold text-gray-800 truncate mr-2">{reference}</code>
+                <button onClick={() => copy(reference)} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-200 transition">
+                  {copied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
                 </button>
               </div>
             </div>
           )}
 
+          {/* Status card */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+              <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">Payment Confirmed</p>
+                <p className="text-green-600 text-xs">We received your payment successfully</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { num: '1', text: 'Order is being prepared', done: true },
+                { num: '2', text: 'Data bundle delivery in 10-60 min', done: false },
+                { num: '3', text: 'SMS confirmation on delivery', done: false },
+              ].map((step) => (
+                <div key={step.num} className="flex items-center gap-3">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                    step.done ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'
+                  }`}>
+                    {step.done ? <CheckCircle className="w-4 h-4" /> : step.num}
+                  </div>
+                  <p className={`text-sm ${step.done ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>{step.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Check status button */}
           <button
             onClick={recheckPayment}
             disabled={checking}
-            className="flex items-center justify-center gap-2 w-full px-4 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl mb-3 transition"
+            className="w-full flex items-center justify-center gap-2.5 px-5 py-4 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-semibold rounded-2xl mb-3 transition-all active:scale-[0.98] shadow-lg shadow-gray-900/10"
           >
             {checking ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Checking with Paystack...
-              </>
+              <><Loader2 className="w-5 h-5 animate-spin" /> Verifying with Paystack...</>
             ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                Check Payment Status
-              </>
+              <><RefreshCw className="w-5 h-5" /> Check Payment Status</>
             )}
           </button>
 
-          <p className="text-gray-500 text-xs text-center mb-4">
-            If you were charged, tap above to re-verify your payment
-          </p>
-
-          {store?.contactInfo?.whatsappNumber && (
-            <a
-              href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}?text=Hi, I had an issue with my payment. Reference: ${reference || 'N/A'}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl mb-4 transition"
-            >
-              <MessageCircle className="w-5 h-5" />
-              Contact Support
-            </a>
+          {error && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-3">
+              <p className="text-amber-700 text-xs text-center">{error}</p>
+            </div>
           )}
 
-          <div className="flex gap-3">
+          {/* Actions */}
+          <div className="flex gap-2.5 mb-4">
+            {whatsapp && (
+              <a
+                href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, I made a payment and want to confirm. Ref: ${reference || 'N/A'}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-2xl transition-all active:scale-[0.98]"
+              >
+                <MessageCircle className="w-4 h-4" /> Support
+              </a>
+            )}
             <Link
               href={`/shop/${params.storeSlug}`}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-2xl transition"
             >
-              <Home className="w-4 h-4" />
-              Home
+              <Home className="w-4 h-4" /> Home
+            </Link>
+          </div>
+
+          {store && (
+            <p className="text-center text-gray-400 text-xs">
+              Powered by <span className="font-medium text-gray-500">{storeName}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Success ──
+  if (status === 'success') {
+    const network = transaction?.product?.network;
+    const networkDisplay = network === 'YELLO' ? 'MTN' : network === 'AT_PREMIUM' ? 'AirtelTigo' : network;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white p-4 flex items-start justify-center pt-8 sm:pt-16">
+        <div className="w-full max-w-sm">
+          {/* Success header */}
+          <div className="relative bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl p-8 text-center text-white mb-6 overflow-hidden shadow-xl shadow-green-600/20">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+            {/* Animated checkmark */}
+            <div className="relative w-20 h-20 mx-auto mb-4">
+              <div className="absolute inset-0 bg-white/20 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
+              <div className="relative w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-10 h-10" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold mb-1">Payment Successful!</h1>
+            <p className="text-green-100 text-sm">Your data bundle is confirmed</p>
+          </div>
+
+          {/* Transaction ID */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Transaction ID</p>
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+              <code className="text-sm font-bold text-gray-900 truncate mr-2">{transaction?.transactionId}</code>
+              <button onClick={() => copy(transaction?.transactionId)} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-200 transition">
+                {copied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Order details */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+            <div className="p-4 border-b border-gray-50">
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Order Details</p>
+            </div>
+            <div className="divide-y divide-gray-50">
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <Package className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm text-gray-500">Product</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900">{transaction?.product?.capacity}GB</p>
+                  <p className="text-xs text-gray-400">{networkDisplay}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-green-50 rounded-lg flex items-center justify-center">
+                    <span className="text-green-600 text-sm font-bold">₵</span>
+                  </div>
+                  <span className="text-sm text-gray-500">Amount</span>
+                </div>
+                <p className="text-sm font-bold text-green-600">GH₵ {transaction?.amount?.toFixed(2)}</p>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center">
+                    <Phone className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="text-sm text-gray-500">Delivery to</span>
+                </div>
+                <p className="text-sm font-bold text-gray-900">{transaction?.phoneNumber}</p>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-amber-50 rounded-lg flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <span className="text-sm text-gray-500">Status</span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  {transaction?.orderStatus === 'completed' ? 'Completed' : 'Delivering'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Delivery info */}
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <Wifi className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-900 text-sm mb-0.5">Delivery in progress</p>
+                <p className="text-blue-700 text-xs leading-relaxed">
+                  Your data bundle will arrive within 10-60 minutes. You'll get an SMS when it's delivered.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="space-y-2.5 mb-4">
+            {whatsapp && (
+              <a
+                href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, I need help with order ${transaction?.transactionId}`}
+                target="_blank" rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2.5 px-5 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-2xl transition-all active:scale-[0.98]"
+              >
+                <MessageCircle className="w-5 h-5" /> Contact Support
+              </a>
+            )}
+            <div className="flex gap-2.5">
+              <Link
+                href={`/shop/${params.storeSlug}`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-2xl transition"
+              >
+                <Home className="w-4 h-4" /> Home
+              </Link>
+              <Link
+                href={`/shop/${params.storeSlug}/products`}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-2xl transition-all active:scale-[0.98]"
+              >
+                <ShoppingBag className="w-4 h-4" /> Buy More
+              </Link>
+            </div>
+          </div>
+
+          {store && (
+            <p className="text-center text-gray-400 text-xs">
+              Thank you for shopping with <span className="font-medium text-gray-500">{storeName}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Failed ──
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-red-50 via-white to-white p-4 flex items-start justify-center pt-8 sm:pt-16">
+      <div className="w-full max-w-sm">
+        {/* Error header */}
+        <div className="relative bg-gradient-to-br from-red-500 to-rose-600 rounded-3xl p-8 text-center text-white mb-6 overflow-hidden shadow-xl shadow-red-600/20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+          <div className="relative">
+            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-10 h-10" />
+            </div>
+            <h1 className="text-2xl font-bold mb-1">Verification Failed</h1>
+            <p className="text-red-100 text-sm">{error || "We couldn't verify your payment"}</p>
+          </div>
+        </div>
+
+        {/* Reference */}
+        {reference && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Payment Reference</p>
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+              <code className="text-sm font-semibold text-gray-800 truncate mr-2">{reference}</code>
+              <button onClick={() => copy(reference)} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-200 transition">
+                {copied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Re-verify button */}
+        <button
+          onClick={recheckPayment}
+          disabled={checking}
+          className="w-full flex items-center justify-center gap-2.5 px-5 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-2xl mb-3 transition-all active:scale-[0.98] shadow-lg shadow-blue-600/10"
+        >
+          {checking ? (
+            <><Loader2 className="w-5 h-5 animate-spin" /> Checking with Paystack...</>
+          ) : (
+            <><RefreshCw className="w-5 h-5" /> Re-verify Payment</>
+          )}
+        </button>
+
+        <p className="text-gray-400 text-xs text-center mb-4">
+          If you were charged, tap above to re-verify your payment
+        </p>
+
+        {/* What happened */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-3">What might have happened?</p>
+          <div className="space-y-2.5">
+            {[
+              'Payment was cancelled before completing',
+              'Insufficient funds in your account',
+              'Network or connection timeout',
+              'Temporary payment gateway issue',
+            ].map((reason, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="w-1.5 h-1.5 bg-gray-300 rounded-full mt-1.5 flex-shrink-0" />
+                <p className="text-gray-600 text-sm">{reason}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-2.5 mb-4">
+          {whatsapp && (
+            <a
+              href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, I had a payment issue. Reference: ${reference || 'N/A'}`}
+              target="_blank" rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2.5 px-5 py-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-2xl transition-all active:scale-[0.98]"
+            >
+              <MessageCircle className="w-5 h-5" /> Contact Support
+            </a>
+          )}
+          <div className="flex gap-2.5">
+            <Link
+              href={`/shop/${params.storeSlug}`}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-2xl transition"
+            >
+              <Home className="w-4 h-4" /> Home
             </Link>
             <Link
               href={`/shop/${params.storeSlug}/products`}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-2xl transition-all active:scale-[0.98]"
             >
               Try Again
             </Link>
           </div>
         </div>
+
+        {store && (
+          <p className="text-center text-gray-400 text-xs">
+            Powered by <span className="font-medium text-gray-500">{storeName}</span>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -535,10 +514,13 @@ function PaymentVerifyContent() {
 export default function PaymentVerifyPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-gray-400 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900">Loading...</h2>
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-gray-200" />
+            <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 animate-spin" />
+          </div>
+          <p className="text-gray-500 text-sm">Loading...</p>
         </div>
       </div>
     }>
