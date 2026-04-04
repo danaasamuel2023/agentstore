@@ -27,10 +27,20 @@ function PaymentVerifyContent() {
       ref = ref.split(':')[0].trim();
       setReference(ref);
     }
-    
+
     verifyPayment();
     fetchStore();
   }, []);
+
+  // Auto-retry verification after 5 seconds if still in processing state
+  useEffect(() => {
+    if (status === 'processing' && reference) {
+      const retryTimer = setTimeout(() => {
+        verifyPayment();
+      }, 5000);
+      return () => clearTimeout(retryTimer);
+    }
+  }, [status]);
 
   const verifyPayment = async () => {
     try {
@@ -71,6 +81,24 @@ function PaymentVerifyContent() {
       }
     } catch (err) {
       console.error('Verification error:', err);
+      // Try to check payment status as fallback
+      try {
+        const ref = searchParams.get('reference') || searchParams.get('trxref');
+        if (ref) {
+          const statusRes = await fetch(
+            `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/status-by-ref/${ref.split(':')[0].trim()}`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'success' && statusData.data?.paymentStatus === 'completed') {
+              setStatus('success');
+              setTransaction(statusData.data);
+              return;
+            }
+          }
+        }
+      } catch {}
       setStatus('processing');
     }
   };
