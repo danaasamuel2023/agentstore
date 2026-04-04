@@ -118,10 +118,56 @@ function PaymentVerifyContent() {
     }
   };
 
+  const [checking, setChecking] = useState(false);
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const recheckPayment = async () => {
+    setChecking(true);
+    try {
+      const ref = reference || searchParams.get('reference') || searchParams.get('trxref');
+      if (!ref) return;
+      const cleanRef = ref.split(':')[0].trim();
+
+      const res = await fetch(
+        `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/verify?reference=${cleanRef}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.status === 'success') {
+          setStatus('success');
+          setTransaction(data.data);
+          return;
+        }
+      }
+
+      // If verify didn't return success, check if the order was already created
+      const statusRes = await fetch(
+        `${API_BASE}/v1/agent-stores/stores/${params.storeSlug}/payment/status-by-ref/${cleanRef}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        if (statusData.status === 'success' && statusData.data?.paymentStatus === 'completed') {
+          setStatus('success');
+          setTransaction(statusData.data);
+          return;
+        }
+      }
+
+      setError('Payment is still being processed. Please wait a moment and try again.');
+    } catch (err) {
+      setError('Unable to check payment status. Please try again.');
+    } finally {
+      setChecking(false);
+    }
   };
 
   // Loading
@@ -203,6 +249,30 @@ function PaymentVerifyContent() {
                 </li>
               </ul>
             </div>
+
+            <button
+              onClick={recheckPayment}
+              disabled={checking}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl mb-3 transition"
+            >
+              {checking ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Checking with Paystack...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Check Payment Status
+                </>
+              )}
+            </button>
+
+            {error && status === 'processing' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+                <p className="text-amber-700 text-sm text-center">{error}</p>
+              </div>
+            )}
 
             {store?.contactInfo?.whatsappNumber && (
               <a
@@ -389,6 +459,45 @@ function PaymentVerifyContent() {
               <li>• Payment gateway timeout</li>
             </ul>
           </div>
+
+          {reference && (
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Payment Reference</p>
+                  <p className="font-mono font-semibold text-gray-900 text-sm">{reference}</p>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(reference)}
+                  className="p-2 hover:bg-gray-200 rounded-lg transition"
+                >
+                  {copied ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5 text-gray-400" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={recheckPayment}
+            disabled={checking}
+            className="flex items-center justify-center gap-2 w-full px-4 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-xl mb-3 transition"
+          >
+            {checking ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Checking with Paystack...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5" />
+                Check Payment Status
+              </>
+            )}
+          </button>
+
+          <p className="text-gray-500 text-xs text-center mb-4">
+            If you were charged, tap above to re-verify your payment
+          </p>
 
           {store?.contactInfo?.whatsappNumber && (
             <a
