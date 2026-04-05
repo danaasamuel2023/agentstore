@@ -147,8 +147,8 @@ export default function PromoClaimButton({ storeSlug }) {
                       </div>
                     </div>
 
-                    {/* Emoji tap — any one works */}
-                    {challenge && (
+                    {/* Emoji tap — only shows after code + phone entered */}
+                    {challenge && code.trim().length >= 3 && phone.trim().length >= 10 && (
                       <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
                         <p className="text-gray-400 text-xs mb-2.5">Tap any emoji to verify</p>
                         <div className="grid grid-cols-6 gap-2">
