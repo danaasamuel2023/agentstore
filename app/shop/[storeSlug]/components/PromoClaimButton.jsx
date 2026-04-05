@@ -147,10 +147,10 @@ export default function PromoClaimButton({ storeSlug }) {
                       </div>
                     </div>
 
-                    {/* Emoji challenge */}
+                    {/* Emoji tap — any one works */}
                     {challenge && (
                       <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-gray-400 text-xs mb-2.5">Tap the <span className="text-2xl align-middle">{challenge.target}</span> to continue</p>
+                        <p className="text-gray-400 text-xs mb-2.5">Tap any emoji to verify</p>
                         <div className="grid grid-cols-6 gap-2">
                           {challenge.options.map((emoji, i) => (
                             <button key={i} onClick={() => setSelectedEmoji(emoji)}
@@ -162,17 +162,14 @@ export default function PromoClaimButton({ storeSlug }) {
                             >{emoji}</button>
                           ))}
                         </div>
-                        {selectedEmoji && selectedEmoji !== challenge.target && (
-                          <p className="text-red-400 text-[11px] mt-2 text-center">Wrong one — try again</p>
-                        )}
-                        {selectedEmoji === challenge.target && (
+                        {selectedEmoji && (
                           <p className="text-green-400 text-[11px] mt-2 text-center">Verified ✓</p>
                         )}
                       </div>
                     )}
 
                     <button onClick={handleClaim}
-                      disabled={loading || !code.trim() || !phone.trim() || selectedEmoji !== challenge?.target}
+                      disabled={loading || !code.trim() || !phone.trim() || !selectedEmoji}
                       className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-colors disabled:opacity-40 disabled:hover:bg-yellow-400 text-sm"
                     >
                       {loading ? (
