@@ -399,10 +399,10 @@ function ProductsContent() {
       if (data.status === 'success' && data.data.authorizationUrl) {
         window.location.href = data.data.authorizationUrl;
       } else {
-        showToast(data.message || 'Payment failed', 'error');
+        showToast(`${data.message || 'Payment failed'}${data.details ? ': ' + data.details : ''}`, 'error');
       }
     } catch (error) {
-      showToast('Something went wrong', 'error');
+      showToast(`Error: ${error.message}`, 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -496,10 +496,10 @@ function ProductsContent() {
       if (initData.status === 'success' && initData.data.authorizationUrl) {
         window.location.href = initData.data.authorizationUrl;
       } else {
-        showToast(initData.message || 'Failed to initialize payment', 'error');
+        showToast(`${initData.message || 'Failed to initialize payment'}${initData.details ? ': ' + initData.details : ''}`, 'error');
       }
-    } catch {
-      showToast('Something went wrong', 'error');
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
     } finally {
       setIsProcessing(false);
     }
