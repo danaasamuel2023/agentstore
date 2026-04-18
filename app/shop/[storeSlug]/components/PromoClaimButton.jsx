@@ -13,10 +13,6 @@ export default function PromoClaimButton({ storeSlug }) {
   const [result, setResult] = useState(null);
   const [pulse, setPulse] = useState(true);
 
-  // Anti-bot
-  const [challenge, setChallenge] = useState(null);
-  const [selectedEmoji, setSelectedEmoji] = useState(null);
-
   useEffect(() => { checkVisibility(); }, [storeSlug]);
   useEffect(() => { const t = setTimeout(() => setPulse(false), 10000); return () => clearTimeout(t); }, []);
 
@@ -28,38 +24,26 @@ export default function PromoClaimButton({ storeSlug }) {
     } catch {}
   };
 
-  const fetchChallenge = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/agent-promo/store/${storeSlug}/promo/challenge`);
-      const data = await res.json();
-      if (data.success) { setChallenge(data.data); setSelectedEmoji(null); }
-    } catch {}
-  };
-
   const openModal = () => {
-    setShowModal(true); setResult(null); setCode(''); setSelectedEmoji(null); setPulse(false);
-    fetchChallenge();
+    setShowModal(true); setResult(null); setCode(''); setPulse(false);
   };
 
   const handleClaim = async () => {
-    if (!code.trim() || !phone.trim() || !selectedEmoji) return;
+    if (!code.trim() || !phone.trim()) return;
     setLoading(true); setResult(null);
     try {
       const res = await fetch(`${API_BASE}/agent-promo/store/${storeSlug}/promo/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: code.trim(), phone: phone.trim(), name: name.trim() || undefined,
-          challengeToken: challenge?.token, challengeAnswer: selectedEmoji
+          code: code.trim(), phone: phone.trim(), name: name.trim() || undefined
         })
       });
       const data = await res.json();
       setResult({ success: data.success, message: data.message, data: data.data });
-      if (data.success) { setCode(''); setPhone(''); setName(''); setSelectedEmoji(null); }
-      else fetchChallenge();
+      if (data.success) { setCode(''); setPhone(''); setName(''); }
     } catch {
       setResult({ success: false, message: 'Something went wrong. Try again.' });
-      fetchChallenge();
     } finally { setLoading(false); }
   };
 
@@ -147,29 +131,8 @@ export default function PromoClaimButton({ storeSlug }) {
                       </div>
                     </div>
 
-                    {/* Emoji tap — only shows after code + phone entered */}
-                    {challenge && code.trim().length >= 3 && phone.trim().length >= 10 && (
-                      <div className="mb-4 p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <p className="text-gray-400 text-xs mb-2.5">Tap any emoji to verify</p>
-                        <div className="grid grid-cols-6 gap-2">
-                          {challenge.options.map((emoji, i) => (
-                            <button key={i} onClick={() => setSelectedEmoji(emoji)}
-                              className={`text-2xl p-2 rounded-xl transition-all active:scale-90 ${
-                                selectedEmoji === emoji
-                                  ? 'bg-yellow-400/20 border-2 border-yellow-400 scale-110'
-                                  : 'bg-white/5 border-2 border-transparent hover:bg-white/10'
-                              }`}
-                            >{emoji}</button>
-                          ))}
-                        </div>
-                        {selectedEmoji && (
-                          <p className="text-green-400 text-[11px] mt-2 text-center">Verified ✓</p>
-                        )}
-                      </div>
-                    )}
-
                     <button onClick={handleClaim}
-                      disabled={loading || !code.trim() || !phone.trim() || !selectedEmoji}
+                      disabled={loading || !code.trim() || !phone.trim()}
                       className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-colors disabled:opacity-40 disabled:hover:bg-yellow-400 text-sm"
                     >
                       {loading ? (
