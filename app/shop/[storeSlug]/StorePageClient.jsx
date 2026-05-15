@@ -5,6 +5,7 @@ import { ArrowRight, Zap, Shield, Clock, CheckCircle, ChevronRight, Star, Truck 
 import { extractDesignSettings } from '@/lib/designCache';
 import HeroSection from './components/HeroSection';
 import PackageDisplay from './components/PackageDisplay';
+import LiveStatusBar from './components/LiveStatusBar';
 
 // Network Logos
 const MTNLogo = ({ size = 40 }) => (
@@ -123,6 +124,9 @@ export default function StorePageClient({ storeSlug, initialStore, initialProduc
         storeSlug={storeSlug}
         theme={theme}
       />
+
+      {/* Live Status Bar — real-time delivery activity from DataMart backend */}
+      <LiveStatusBar theme={theme} />
 
       {/* Features */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
