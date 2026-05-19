@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown } from 'lucide-react';
+import { DeliveryEtaBanner, DeliveryEtaInline } from '../components/DeliveryEta';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
@@ -83,6 +84,12 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
             </div>
           </div>
           
+          {/* Delivery ETA — same logic as mtnup2u + /orders on DataMart */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
+            <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1 text-center">Estimated Delivery</p>
+            <DeliveryEtaInline />
+          </div>
+
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6">
             <p className="text-amber-700 text-sm text-center">
               ⚠️ Data cannot be reversed once sent. Please confirm the number is correct.
@@ -835,6 +842,9 @@ function ProductsContent() {
           <strong>Note:</strong> Please verify your phone number before purchase. Data is delivered within 10 minutes to 1 hour.
         </p>
       </div>
+
+      {/* Live delivery ETA — same buckets as mtnup2u + /orders on DataMart */}
+      <DeliveryEtaBanner />
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
