@@ -5,7 +5,6 @@ import { ArrowRight, Zap, Shield, Clock, CheckCircle, ChevronRight, Star, Truck 
 import { extractDesignSettings } from '@/lib/designCache';
 import HeroSection from './components/HeroSection';
 import PackageDisplay from './components/PackageDisplay';
-import LiveStatusBar from './components/LiveStatusBar';
 import { DeliveryEtaBanner } from './components/DeliveryEta';
 
 // Network Logos
@@ -125,9 +124,6 @@ export default function StorePageClient({ storeSlug, initialStore, initialProduc
         storeSlug={storeSlug}
         theme={theme}
       />
-
-      {/* Live Status Bar — real-time delivery activity from DataMart backend */}
-      <LiveStatusBar theme={theme} />
 
       {/* Delivery ETA — same bucketed messaging as mtnup2u + /orders */}
       <DeliveryEtaBanner />
