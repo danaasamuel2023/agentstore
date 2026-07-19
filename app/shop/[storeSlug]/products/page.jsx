@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown } from 'lucide-react';
 import { DeliveryEtaBanner, DeliveryEtaInline } from '../components/DeliveryEta';
+import VerifyNumberModal from '../components/VerifyNumberModal';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
@@ -131,6 +132,7 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [showVerify, setShowVerify] = useState(false);
   
   const getStyle = (network) => {
     if (network === 'YELLO') return { 
@@ -308,10 +310,26 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
               >
                 Buy {product.capacity}GB for ₵{price.toFixed(2)}
               </button>
+
+              {/* Optional pre-check for MTN — new SIMs need activation first */}
+              {product.network === 'YELLO' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowVerify(true)}
+                    className="w-full mt-2.5 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-black/20 bg-black/5 text-black font-semibold text-sm hover:bg-black/10 hover:border-black/30 transition"
+                  >
+                    <Search className="w-4 h-4" /> New number? Check it can be served
+                  </button>
+                  <p className="text-center text-[11px] text-black/50 mt-1.5">Optional — takes a few seconds. Skip it if the number already works.</p>
+                </>
+              )}
             </>
           )}
         </div>
       )}
+
+      <VerifyNumberModal open={showVerify} onClose={() => setShowVerify(false)} prefill={phone} />
     </div>
   );
 };
