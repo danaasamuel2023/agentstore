@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { ChevronRight, Star, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronRight, Star, Zap, Search } from 'lucide-react';
+import VerifyNumberModal from './VerifyNumberModal';
 
 // Network Logos
 const MTNLogo = ({ size = 40 }) => (
@@ -253,20 +255,37 @@ const ListDisplay = ({ products, storeSlug }) => {
  * Main PackageDisplay Component - Renders based on style
  */
 export default function PackageDisplay({ style = 'default', products, storeSlug, title = 'Popular Bundles' }) {
+  const [showVerify, setShowVerify] = useState(false);
+
   if (!products || products.length === 0) return null;
+
+  const hasMtn = products.some((p) => p.network === 'YELLO');
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
-        <Link
-          href={`/shop/${storeSlug}/products`}
-          className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition"
-        >
-          See All
-          <ChevronRight className="w-4 h-4" />
-        </Link>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {hasMtn && (
+            <button
+              type="button"
+              onClick={() => setShowVerify(true)}
+              className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1.5 transition"
+            >
+              <Search className="w-4 h-4" /> Check a number
+            </button>
+          )}
+          <Link
+            href={`/shop/${storeSlug}/products`}
+            className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition"
+          >
+            See All
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
+
+      <VerifyNumberModal open={showVerify} onClose={() => setShowVerify(false)} />
 
       {style === 'cards' && <CardsDisplay products={products} storeSlug={storeSlug} />}
       {style === 'grid' && <GridDisplay products={products} storeSlug={storeSlug} />}
