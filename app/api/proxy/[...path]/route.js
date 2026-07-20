@@ -18,6 +18,11 @@ async function proxyRequest(request, path) {
       headers['x-auth-token'] = token.startsWith('Bearer ') ? token.slice(7) : token;
     }
 
+    // Forward the real customer IP so per-customer rate limits (e.g. number
+    // verify) don't bucket every store's shoppers under this proxy's egress IP.
+    const clientIp = (request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '').split(',')[0].trim();
+    if (clientIp) headers['x-client-ip'] = clientIp;
+
     // Build the full URL with query parameters
     const url = new URL(request.url);
     const queryString = url.search;
