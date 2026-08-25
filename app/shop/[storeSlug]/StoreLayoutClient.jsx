@@ -17,7 +17,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Users, ExternalLink, Settings, Phone, Store, LogIn, ChevronRight } from 'lucide-react';
+import { Users, ExternalLink, Phone, Store, LogIn } from 'lucide-react';
 import WhatsAppIcon from './components/WhatsAppIcon';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
 import { storeVars } from '@/lib/storeTheme';
@@ -303,17 +303,10 @@ export default function StoreLayoutClient({ children, initialStore }) {
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-hairline pt-6 sm:flex-row">
+          <div className="mt-10 border-t border-hairline pt-6 text-center">
             <p className="text-[12px] text-ink-4">
               © {new Date().getFullYear()} {store.storeName}
             </p>
-            <Link
-              href={`/shop/${params.storeSlug}/owner/design`}
-              className="flex items-center gap-1.5 text-[12px] text-ink-4 transition-colors hover:text-ink-2"
-            >
-              <Settings className="h-3 w-3" />
-              Store owner
-            </Link>
           </div>
         </div>
       </footer>
