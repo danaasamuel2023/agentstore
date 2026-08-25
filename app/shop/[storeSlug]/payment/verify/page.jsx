@@ -2,8 +2,9 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, XCircle, Clock, Loader2, Phone, Home, ShoppingBag, Copy, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Loader2, Home, ShoppingBag, Copy, RefreshCw } from 'lucide-react';
 import WhatsAppIcon from '../../components/WhatsAppIcon';
+import { DeliveryEtaInline } from '../../components/DeliveryEta';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
 
@@ -63,6 +64,7 @@ function PaymentVerifyContent() {
             return;
           }
           setDebugError(`Verify: ${data.message || 'Unknown'} (${res.status})`);
+        console.warn('[payment-verify]', data.message, res.status);
         }
       } catch (e) {
         setDebugError(`Verify error: ${e.message}`);
@@ -145,168 +147,226 @@ function PaymentVerifyContent() {
   const whatsapp = store?.contactInfo?.whatsappNumber;
   const networkName = (n) => n === 'YELLO' ? 'MTN' : n === 'AT_PREMIUM' ? 'AirtelTigo' : n;
 
-  if (status === 'loading') return (
-    <div className="flex items-center justify-center min-h-[70vh]">
-      <div className="text-center">
-        <Loader2 className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin mx-auto mb-3" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">Verifying payment...</p>
-      </div>
-    </div>
-  );
+  /* ---------------------------------------------------------------------- */
+  /* Shared pieces                                                          */
+  /* ---------------------------------------------------------------------- */
 
-  if (status === 'processing') return (
-    <div className="flex items-start justify-center min-h-[70vh] pt-10 px-4">
-      <div className="w-full max-w-xs">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 pt-6 pb-5 text-center border-b border-gray-100 dark:border-gray-800">
-            <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-[3px] border-gray-200 dark:border-gray-700" />
-              <div className="absolute inset-0 rounded-full border-[3px] border-t-blue-500 animate-spin" />
-            </div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Payment Received</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Processing your order...</p>
-          </div>
-          <div className="p-4 space-y-3">
-            {reference && (
-              <button onClick={() => copy(reference)} className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5 group">
-                <div className="text-left min-w-0">
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Reference</p>
-                  <p className="text-xs font-mono font-medium text-gray-700 dark:text-gray-300 truncate">{reference}</p>
-                </div>
-                {copied ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-              </button>
-            )}
-            <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-950/30 rounded-xl px-3 py-2.5">
-              <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-green-700 dark:text-green-400">Payment confirmed. Data delivery in 10-60 min.</p>
-            </div>
-            <button onClick={recheckPayment} disabled={checking}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 text-white dark:text-gray-900 text-xs font-semibold rounded-xl transition active:scale-[0.98]"
-            >{checking ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...</> : <><RefreshCw className="w-3.5 h-3.5" /> Check Status</>}</button>
-            {error && <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">{error}</p>}
-            {debugError && <p className="text-[10px] text-gray-500 dark:text-gray-600 text-center font-mono">{debugError}</p>}
-            <div className="flex gap-2">
-              {whatsapp && (
-                <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, confirming payment ref: ${reference || 'N/A'}`} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
-              )}
-              <Link href={`/shop/${params.storeSlug}`}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              ><Home className="w-3.5 h-3.5" /> Home</Link>
-            </div>
+  const Shell = ({ tone, Icon, spin, title, subtitle, children }) => (
+    <div className="mx-auto w-full max-w-md py-8">
+      <div className="card overflow-hidden">
+        <div className="flex items-start gap-3.5 border-b border-hairline p-5">
+          <span
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-lg"
+            style={{ background: `var(--${tone}-soft)`, color: `var(--${tone})` }}
+          >
+            <Icon className={`h-5 w-5 ${spin ? 'animate-spin' : ''}`} />
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <h1 className="text-[17px]">{title}</h1>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-ink-3">{subtitle}</p>
           </div>
         </div>
+        <div className="space-y-4 p-5">{children}</div>
       </div>
     </div>
   );
 
-  if (status === 'success') return (
-    <div className="flex items-start justify-center min-h-[70vh] pt-10 px-4">
-      <div className="w-full max-w-xs">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 pt-6 pb-5 text-center border-b border-gray-100 dark:border-gray-800">
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-            </div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Payment Successful</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Order confirmed</p>
-          </div>
-          <div className="p-4 space-y-3">
-            <button onClick={() => copy(transaction?.transactionId)} className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5 group">
-              <div className="text-left min-w-0">
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Transaction ID</p>
-                <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200 truncate">{transaction?.transactionId}</p>
-              </div>
-              {copied ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-            </button>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl divide-y divide-gray-100 dark:divide-gray-700/50">
-              {[
-                { label: 'Product', value: `${transaction?.product?.capacity || '?'}GB ${networkName(transaction?.product?.network)}`, icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-                { label: 'Amount', value: `GH₵ ${transaction?.amount?.toFixed?.(2) || transaction?.amount || '?'}`, icon: <span className="text-[10px] font-bold">₵</span>, green: true },
-                { label: 'Phone', value: transaction?.phoneNumber || '—', icon: <Phone className="w-3.5 h-3.5" /> },
-                { label: 'Status', value: transaction?.orderStatus === 'completed' ? 'Completed' : 'Delivering', icon: <Clock className="w-3.5 h-3.5" />, badge: true },
-              ].map((row, i) => (
-                <div key={i} className="flex items-center justify-between px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
-                    {row.icon}<span className="text-xs">{row.label}</span>
-                  </div>
-                  {row.badge ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />{row.value}
-                    </span>
-                  ) : (
-                    <span className={`text-xs font-semibold ${row.green ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-gray-200'}`}>{row.value}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">Data delivery in 10-60 min. SMS on completion.</p>
-            <div className="flex gap-2">
-              {whatsapp && (
-                <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, help with order ${transaction?.transactionId}`} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
-              )}
-              <Link href={`/shop/${params.storeSlug}/products`}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 text-xs font-semibold rounded-xl transition active:scale-[0.98]"
-              ><ShoppingBag className="w-3.5 h-3.5" /> Buy More</Link>
-            </div>
-          </div>
+  /* A reference is the only thing a customer can hand to support, so it is a
+     row you can read and copy, not 11px mono squeezed into a corner. */
+  const CopyRow = ({ label, value }) => {
+    if (!value) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => copy(value)}
+        className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-sunken px-4 py-3 text-left transition-colors hover:border-hairline-strong"
+      >
+        <span className="min-w-0">
+          <span className="block text-[11px] uppercase tracking-[0.07em] text-ink-3">{label}</span>
+          <span className="num mt-0.5 block truncate text-[14px] font-semibold text-ink">{value}</span>
+        </span>
+        {copied ? (
+          <CheckCircle className="h-4 w-4 flex-none" style={{ color: 'var(--ok)' }} />
+        ) : (
+          <Copy className="h-4 w-4 flex-none text-ink-4" />
+        )}
+      </button>
+    );
+  };
+
+  const SupportRow = ({ text, primary }) => (
+    <div className="flex gap-2">
+      {whatsapp && (
+        <a
+          href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost flex-1"
+        >
+          <span style={{ color: '#25D366' }} className="flex">
+            <WhatsAppIcon className="h-4 w-4" />
+          </span>
+          Message the shop
+        </a>
+      )}
+      {primary}
+    </div>
+  );
+
+  /* ---------------------------------------------------------------------- */
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="space-y-3 text-center">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-ink-4" />
+          <p className="text-[13px] text-ink-3">Checking your payment…</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // Failed
+  if (status === 'processing') {
+    return (
+      <Shell
+        tone="warn"
+        Icon={Loader2}
+        spin
+        title="Payment received"
+        subtitle="We have your money. The bundle is on its way to the number you entered."
+      >
+        <CopyRow label="Reference" value={reference} />
+
+        {/* Measured, not "10-60 min". The old copy printed a guess as a fact on
+            the one screen where a customer is most anxious about timing. */}
+        <div className="rounded-lg border border-hairline px-4 py-3">
+          <DeliveryEtaInline />
+        </div>
+
+        <button type="button" onClick={recheckPayment} disabled={checking} className="btn btn-brand w-full">
+          {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {checking ? 'Checking' : 'Check again'}
+        </button>
+
+        {error && (
+          <p className="text-center text-[12.5px]" style={{ color: 'var(--warn)' }}>
+            {error}
+          </p>
+        )}
+
+        <SupportRow
+          text={`Hi, confirming payment ref: ${reference || 'N/A'}`}
+          primary={
+            <Link href={`/shop/${params.storeSlug}`} className="btn btn-ghost flex-1">
+              <Home className="h-4 w-4" />
+              Home
+            </Link>
+          }
+        />
+      </Shell>
+    );
+  }
+
+  if (status === 'success') {
+    const rows = [
+      { label: 'Bundle', value: `${transaction?.product?.capacity || '?'}GB ${networkName(transaction?.product?.network)}` },
+      { label: 'Paid', value: `₵${transaction?.amount?.toFixed?.(2) || transaction?.amount || '?'}` },
+      { label: 'Sent to', value: transaction?.phoneNumber || '—' },
+    ];
+    const done = transaction?.orderStatus === 'completed';
+
+    return (
+      <Shell
+        tone="ok"
+        Icon={CheckCircle}
+        title="Payment successful"
+        subtitle={done ? 'Delivered. Check the phone.' : 'Your order is confirmed and queued.'}
+      >
+        <CopyRow label="Transaction ID" value={transaction?.transactionId} />
+
+        <dl className="divide-y divide-hairline border-y border-hairline">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="text-[13px] text-ink-3">{row.label}</dt>
+              <dd className="num text-[14px] font-semibold text-ink">{row.value}</dd>
+            </div>
+          ))}
+          <div className="flex items-baseline justify-between gap-4 py-3">
+            <dt className="text-[13px] text-ink-3">Status</dt>
+            <dd>
+              <span
+                className="chip"
+                style={{
+                  background: done ? 'var(--ok-soft)' : 'var(--warn-soft)',
+                  color: done ? 'var(--ok)' : 'var(--warn)',
+                }}
+              >
+                {done ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                {done ? 'Delivered' : 'Delivering'}
+              </span>
+            </dd>
+          </div>
+        </dl>
+
+        {!done && (
+          <div className="rounded-lg border border-hairline px-4 py-3">
+            <DeliveryEtaInline />
+          </div>
+        )}
+
+        <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
+          The network sends an SMS when the data lands. Keep the transaction ID.
+        </p>
+
+        <SupportRow
+          text={`Hi, help with order ${transaction?.transactionId}`}
+          primary={
+            <Link href={`/shop/${params.storeSlug}/products`} className="btn btn-brand flex-1">
+              <ShoppingBag className="h-4 w-4" />
+              Buy again
+            </Link>
+          }
+        />
+      </Shell>
+    );
+  }
+
   return (
-    <div className="flex items-start justify-center min-h-[70vh] pt-10 px-4">
-      <div className="w-full max-w-xs">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 pt-6 pb-5 text-center border-b border-gray-100 dark:border-gray-800">
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
-              <XCircle className="w-6 h-6 text-red-500" />
-            </div>
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Verification Failed</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{error || "Couldn't verify payment"}</p>
-          </div>
-          <div className="p-4 space-y-3">
-            {reference && (
-              <button onClick={() => copy(reference)} className="w-full flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5 group">
-                <div className="text-left min-w-0">
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Reference</p>
-                  <p className="text-xs font-mono font-medium text-gray-700 dark:text-gray-300 truncate">{reference}</p>
-                </div>
-                {copied ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-              </button>
-            )}
-            <button onClick={recheckPayment} disabled={checking}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition active:scale-[0.98]"
-            >{checking ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...</> : <><RefreshCw className="w-3.5 h-3.5" /> Re-verify Payment</>}</button>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">If you were charged, tap above to re-check</p>
-            {debugError && <p className="text-[10px] text-red-400 dark:text-red-500 text-center font-mono bg-red-50 dark:bg-red-950/30 rounded-lg px-2 py-1.5">{debugError}</p>}
-            <div className="flex gap-2">
-              {whatsapp && (
-                <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, payment issue. Ref: ${reference || 'N/A'}`} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
-              )}
-              <Link href={`/shop/${params.storeSlug}/products`}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-              >Try Again</Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Shell
+      tone="bad"
+      Icon={XCircle}
+      title="We could not confirm this payment"
+      subtitle={error || 'Nothing has been lost — if you were charged, check again below.'}
+    >
+      <CopyRow label="Reference" value={reference} />
+
+      <button type="button" onClick={recheckPayment} disabled={checking} className="btn btn-brand w-full">
+        {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        {checking ? 'Checking' : 'Check again'}
+      </button>
+
+      <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
+        A payment can take a moment to reach us. If money left your phone, send the reference above
+        to the shop and they will find it.
+      </p>
+
+      <SupportRow
+        text={`Hi, payment issue. Ref: ${reference || 'N/A'}`}
+        primary={
+          <Link href={`/shop/${params.storeSlug}/products`} className="btn btn-ghost flex-1">
+            Try again
+          </Link>
+        }
+      />
+    </Shell>
   );
 }
 
 export default function PaymentVerifyPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-ink-4" />
       </div>
     }>
       <PaymentVerifyContent />
