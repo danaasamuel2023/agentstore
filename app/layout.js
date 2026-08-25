@@ -1,5 +1,18 @@
 // app/layout.jsx - Root Layout with Global SEO (UPDATED FOR NEXT.JS CONVENTIONS)
+import { Inter } from 'next/font/google'
 import './globals.css'
+
+// The storefront had no webfont at all: globals.css fell back to
+// `Arial, Helvetica, sans-serif` while referencing a --font-geist-sans that was
+// never defined. Every price list rendered in the browser default, which is most
+// of why the shop read as unfinished. Inter is loaded with the numeric features
+// the price tables rely on (see `.num` in globals.css).
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  weight: ['400', '500', '600', '700'],
+})
 
 export const metadata = {
   metadataBase: new URL('https://www.cheapdata.shop'),
@@ -84,7 +97,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en-GH">
+    <html lang="en-GH" className={inter.variable}>
       <head>
         <link rel="canonical" href="https://www.cheapdata.shop" />
         {/* Preconnect to external domains for better performance */}

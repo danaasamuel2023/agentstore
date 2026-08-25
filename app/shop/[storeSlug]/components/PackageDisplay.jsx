@@ -1,297 +1,128 @@
 'use client';
-import Link from 'next/link';
-import { useState } from 'react';
-import { ChevronRight, Star, Zap, Search } from 'lucide-react';
-import VerifyNumberModal from './VerifyNumberModal';
-
-// Network Logos
-const MTNLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-    <rect width="80" height="80" rx="16" fill="#FFCC00"/>
-    <ellipse cx="40" cy="40" rx="30" ry="20" stroke="#000" strokeWidth="3" fill="none"/>
-    <text x="40" y="46" textAnchor="middle" fontFamily="Arial Black" fontSize="14" fontWeight="900" fill="#000">MTN</text>
-  </svg>
-);
-
-const TelecelLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#DC2626"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="18" fill="#fff">T</text>
-  </svg>
-);
-
-const ATLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#7C3AED"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="14" fill="#fff">AT</text>
-  </svg>
-);
-
-const getNetworkStyle = (network) => {
-  if (network === 'YELLO') return {
-    bg: 'bg-yellow-400',
-    hover: 'hover:bg-yellow-300',
-    text: 'text-black',
-    name: 'MTN',
-    logo: <MTNLogo size={32} />
-  };
-  if (network === 'TELECEL') return {
-    bg: 'bg-red-600',
-    hover: 'hover:bg-red-500',
-    text: 'text-white',
-    name: 'Telecel',
-    logo: <TelecelLogo size={32} />
-  };
-  if (network === 'AT_PREMIUM') return {
-    bg: 'bg-purple-600',
-    hover: 'hover:bg-purple-500',
-    text: 'text-white',
-    name: 'AirtelTigo',
-    logo: <ATLogo size={32} />
-  };
-  return { bg: 'bg-gray-600', hover: 'hover:bg-gray-500', text: 'text-white', name: network, logo: null };
-};
 
 /**
- * Default Display Style - Colorful network cards
+ * PackageDisplay — the bold colour tiles, always.
+ *
+ * This used to switch layout on the store's `packageDisplayStyle`, which meant
+ * a shop carrying the legacy value 'list' showed its Popular bundles as thin
+ * grey rows while every other shop got tiles. That setting was seeded, not
+ * chosen, and the rows made the home page look like a settings screen next to
+ * the page it was sending people to.
+ *
+ * Popular bundles is a six-item SHOWCASE. A showcase has one right answer, so
+ * the switch is gone along with the two layouts nobody was choosing.
+ *
+ * The network colour carries the tile. Everything on it is near-black or white
+ * depending on which is actually readable on that colour (MTN yellow needs
+ * black; Telecel red and AirtelTigo blue need white) — decided by `networkOf`,
+ * not guessed per component.
  */
-const DefaultDisplay = ({ products, storeSlug }) => {
+
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+import { networkOf } from '@/lib/storeTheme';
+import NetworkLogo from './NetworkLogo';
+
+const priceOf = (p) => (p.isOnSale && p.salePrice ? p.salePrice : p.sellingPrice);
+const cedis = (n) => `₵${Number(n || 0).toFixed(2)}`;
+
+const shortName = (name) => (name === 'AirtelTigo' ? 'AT' : name === 'Telecel' ? 'TC' : 'MTN');
+
+/* -------------------------------------------------------------------------- */
+
+/** The bold tile. This is the shape people already tap on the products page. */
+function Blocks({ products, storeSlug }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       {products.map((product) => {
-        const style = getNetworkStyle(product.network);
-        const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
+        const net = networkOf(product.network);
+        const price = priceOf(product);
+        const wasDiscounted =
+          product.isOnSale && product.salePrice && product.sellingPrice > product.salePrice;
 
         return (
           <Link
             key={product._id}
             href={`/shop/${storeSlug}/products?network=${product.network}`}
-            className="group"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-xl p-4 transition-transform active:scale-[.985] sm:p-5"
+            style={{ background: net.hex, color: net.ink, minHeight: 148 }}
           >
-            <div className={`${style.bg} ${style.hover} ${style.text} rounded-2xl p-4 transition-all group-hover:shadow-lg group-hover:-translate-y-1 relative`}>
+            <div className="flex items-start justify-between gap-2">
+              <span
+                className="rounded-md px-2 py-1 text-[10.5px] font-bold tracking-wide"
+                style={{ background: 'rgba(255,255,255,.22)', color: net.ink }}
+              >
+                {shortName(net.name)}
+              </span>
+
               {product.isOnSale && (
-                <span className="absolute top-2 right-2 bg-white/20 text-xs font-bold px-2 py-0.5 rounded-full">
-                  SALE
+                <span
+                  className="rounded-md px-2 py-1 text-[10.5px] font-bold uppercase tracking-wide"
+                  style={{ background: net.ink, color: net.hex }}
+                >
+                  Sale
                 </span>
               )}
-              <div className="mb-2">{style.logo}</div>
-              <h3 className="text-2xl font-bold">{product.capacity}GB</h3>
-              <p className="text-xs opacity-70 mb-2">{style.name}</p>
-              <p className="text-lg font-bold">₵{price.toFixed(2)}</p>
             </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-};
 
-/**
- * Cards Display Style - Elevated cards with shadows
- */
-const CardsDisplay = ({ products, storeSlug }) => {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {products.map((product) => {
-        const style = getNetworkStyle(product.network);
-        const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
+            <div className="mt-4">
+              <p className="num text-[30px] font-bold leading-none sm:text-[34px]">
+                {product.capacity}GB
+              </p>
+              <p className="mt-1 text-[12.5px] font-medium" style={{ opacity: 0.72 }}>
+                {net.name} bundle
+              </p>
+            </div>
 
-        return (
-          <Link
-            key={product._id}
-            href={`/shop/${storeSlug}/products?network=${product.network}`}
-            className="group"
-          >
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group-hover:-translate-y-2">
-              <div className={`${style.bg} p-4 flex items-center justify-between`}>
-                <div className={style.text}>
-                  <h3 className="text-3xl font-bold">{product.capacity}GB</h3>
-                  <p className="text-sm opacity-80">{style.name}</p>
-                </div>
-                {style.logo}
-              </div>
-              <div className="p-4">
-                {product.isOnSale && (
-                  <span className="inline-block bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-1 rounded mb-2">
-                    ON SALE
+            <div className="mt-4 flex items-end justify-between gap-2">
+              <span className="flex items-baseline gap-1.5">
+                <span className="num text-[21px] font-bold leading-none">{cedis(price)}</span>
+                {wasDiscounted && (
+                  <span className="num text-[12px] line-through" style={{ opacity: 0.6 }}>
+                    {cedis(product.sellingPrice)}
                   </span>
                 )}
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">₵{price.toFixed(2)}</p>
-                    {product.isOnSale && product.sellingPrice && (
-                      <p className="text-sm text-gray-400 line-through">₵{product.sellingPrice.toFixed(2)}</p>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                    Buy Now
-                    <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </span>
-                </div>
-              </div>
+              </span>
+              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" style={{ opacity: 0.65 }} />
             </div>
           </Link>
         );
       })}
     </div>
   );
-};
+}
 
-/**
- * Grid Display Style - Clean grid layout
- */
-const GridDisplay = ({ products, storeSlug }) => {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-      {products.map((product) => {
-        const style = getNetworkStyle(product.network);
-        const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
+/* -------------------------------------------------------------------------- */
 
-        return (
-          <Link
-            key={product._id}
-            href={`/shop/${storeSlug}/products?network=${product.network}`}
-            className="group"
-          >
-            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-3 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all relative">
-              {product.isOnSale && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="scale-75">{style.logo}</div>
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{style.name}</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">{product.capacity}GB</h3>
-              <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">₵{price.toFixed(2)}</p>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-};
-
-/**
- * Compact Display Style - Small compact items
- */
-const CompactDisplay = ({ products, storeSlug }) => {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {products.map((product) => {
-        const style = getNetworkStyle(product.network);
-        const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
-
-        return (
-          <Link
-            key={product._id}
-            href={`/shop/${storeSlug}/products?network=${product.network}`}
-            className="group"
-          >
-            <div className={`${style.bg} ${style.hover} ${style.text} rounded-xl px-4 py-2 transition-all group-hover:shadow-md flex items-center gap-3`}>
-              <div className="scale-75">{style.logo}</div>
-              <div>
-                <span className="font-bold">{product.capacity}GB</span>
-                <span className="mx-2 opacity-50">•</span>
-                <span className="font-semibold">₵{price.toFixed(2)}</span>
-              </div>
-              {product.isOnSale && (
-                <Zap className="w-4 h-4 text-yellow-300" />
-              )}
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-};
-
-/**
- * List Display Style - Horizontal list items
- */
-const ListDisplay = ({ products, storeSlug }) => {
-  return (
-    <div className="space-y-3">
-      {products.map((product) => {
-        const style = getNetworkStyle(product.network);
-        const price = product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice;
-
-        return (
-          <Link
-            key={product._id}
-            href={`/shop/${storeSlug}/products?network=${product.network}`}
-            className="group"
-          >
-            <div className="flex items-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all">
-              <div className="flex items-center gap-4 flex-1">
-                {style.logo}
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">{product.capacity}GB {style.name}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Data Bundle</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {product.isOnSale && (
-                  <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-1 rounded">
-                    SALE
-                  </span>
-                )}
-                <div className="text-right">
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">₵{price.toFixed(2)}</p>
-                  {product.isOnSale && product.sellingPrice && (
-                    <p className="text-sm text-gray-400 line-through">₵{product.sellingPrice.toFixed(2)}</p>
-                  )}
-                </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-};
-
-/**
- * Main PackageDisplay Component - Renders based on style
- */
-export default function PackageDisplay({ style = 'default', products, storeSlug, title = 'Popular Bundles' }) {
-  const [showVerify, setShowVerify] = useState(false);
+export default function PackageDisplay({
+  products,
+  storeSlug,
+  title = 'Popular bundles',
+  showAllLink = true,
+}) {
 
   if (!products || products.length === 0) return null;
 
-  const hasMtn = products.some((p) => p.network === 'YELLO');
 
   return (
-    <section>
-      <div className="flex items-center justify-between mb-6 gap-3">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
-        <div className="flex items-center gap-4 flex-shrink-0">
-          {hasMtn && (
-            <button
-              type="button"
-              onClick={() => setShowVerify(true)}
-              className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1.5 transition"
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 className="text-[18px]">{title}</h2>
+
+        <div className="flex items-center gap-4">
+          {showAllLink && (
+            <Link
+              href={`/shop/${storeSlug}/products`}
+              className="flex items-center gap-0.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
             >
-              <Search className="w-4 h-4" /> Check a number
-            </button>
+              All prices
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
           )}
-          <Link
-            href={`/shop/${storeSlug}/products`}
-            className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition"
-          >
-            See All
-            <ChevronRight className="w-4 h-4" />
-          </Link>
         </div>
       </div>
 
-      <VerifyNumberModal open={showVerify} onClose={() => setShowVerify(false)} />
-
-      {style === 'cards' && <CardsDisplay products={products} storeSlug={storeSlug} />}
-      {style === 'grid' && <GridDisplay products={products} storeSlug={storeSlug} />}
-      {style === 'compact' && <CompactDisplay products={products} storeSlug={storeSlug} />}
-      {style === 'list' && <ListDisplay products={products} storeSlug={storeSlug} />}
-      {(style === 'default' || !['cards', 'grid', 'compact', 'list'].includes(style)) && <DefaultDisplay products={products} storeSlug={storeSlug} />}
+      <Blocks products={products} storeSlug={storeSlug} />
     </section>
   );
 }

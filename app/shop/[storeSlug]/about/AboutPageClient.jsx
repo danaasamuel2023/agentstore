@@ -1,337 +1,233 @@
 'use client';
-import { useState } from 'react';
-import Image from 'next/image';
-import {
-  Store, Phone, Mail, MessageCircle, Calendar, Clock,
-  MapPin, Shield, Zap, Heart, CheckCircle, Users,
-  Package, Star, TrendingUp
-} from 'lucide-react';
+
+/**
+ * About the shop.
+ *
+ * Minimal on purpose: who the shop is, how to reach them, and whatever policies
+ * the owner actually wrote. Everything else that was here was either invented or
+ * measuring the wrong thing.
+ *
+ * WHAT WAS REMOVED, AND WHY IT MATTERS
+ *
+ * The whole "Statistics" tab. Not for tidiness — every figure in it was false:
+ *
+ *   • `store.metrics.totalOrders || 500` — totalOrders is NOT the shop's own
+ *     count. It is a platform-wide counter written onto every store document; a
+ *     shop created in Sept 2025 reports 2,632,696 and climbs while you watch.
+ *   • `store.metrics.totalCustomers || 100` — reads 0 on every store checked, so
+ *     the tile always rendered the invented "100+".
+ *   • `store.metrics.rating || '4.8'` — a 4.8 star rating shown for shops with
+ *     zero reviews.
+ *   • "99% Success Rate" — hardcoded. Not read from anything at all.
+ *
+ * A customer who notices one invented number stops believing the prices too.
+ * These are not replaced with smaller numbers; they are gone until per-store
+ * metrics are trustworthy.
+ *
+ * Also gone: "Why Choose Us?" (three pastel circles repeating the claims the
+ * home page already makes), "Our Mission" (filler), and "In Business — N days",
+ * which is a metric that actively harms any shop under a year old.
+ *
+ * The tab bar went with them. Two sections do not need tabs.
+ */
+
+import { Mail, Phone, MapPin, Calendar, BadgeCheck, Store } from 'lucide-react';
+import WhatsAppIcon from '../components/WhatsAppIcon';
+import { DeliveredArt } from '../components/StoryArt';
+
+const POLICIES = [
+  ['termsAndConditions', 'Terms and conditions'],
+  ['deliveryPolicy', 'Delivery'],
+  ['refundPolicy', 'Refunds'],
+  ['privacyPolicy', 'Privacy'],
+];
+
+const formatDate = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-GB', { year: 'numeric', month: 'long', timeZone: 'Africa/Accra' });
+};
+
+function Detail({ Icon, label, children }) {
+  return (
+    <div className="flex items-start gap-3 px-5 py-3.5">
+      <Icon className="mt-0.5 h-4 w-4 flex-none text-ink-4" />
+      <div className="min-w-0">
+        <dt className="text-[11px] uppercase tracking-[0.07em] text-ink-3">{label}</dt>
+        <dd className="mt-0.5 text-[14px] text-ink">{children}</dd>
+      </div>
+    </div>
+  );
+}
 
 export default function AboutPageClient({ store }) {
-  const [activeTab, setActiveTab] = useState('about');
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const calculateDays = () => {
-    if (!store?.createdAt) return 0;
-    const created = new Date(store.createdAt);
-    const now = new Date();
-    return Math.ceil((now - created) / (1000 * 60 * 60 * 24));
-  };
-
   if (!store) {
     return (
-      <div className="text-center py-20">
-        <Store className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Store Not Found</h2>
-        <p className="text-gray-500 dark:text-gray-400">Unable to load store information.</p>
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <Store className="mx-auto mb-3 h-8 w-8 text-ink-4" />
+        <h1 className="text-[19px]">Shop not found</h1>
+        <p className="mt-1.5 text-[14px] text-ink-3">This shop could not be loaded.</p>
       </div>
     );
   }
 
-  const tabs = [
-    { id: 'about', label: 'About Us' },
-    { id: 'stats', label: 'Statistics' },
-    { id: 'policies', label: 'Policies' },
-  ];
+  const whatsapp = store.contactInfo?.whatsappNumber?.replace(/\D/g, '');
+  const established = formatDate(store.createdAt);
+  const city = store.contactInfo?.address?.city;
+  const published = POLICIES.filter(([key]) => store.policies?.[key]);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="bg-gray-900 text-white rounded-3xl p-8 mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          {store.storeLogo ? (
-            <Image src={store.storeLogo} alt={store.storeName} width={64} height={64} className="w-16 h-16 rounded-2xl object-cover" />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
-              <Store className="w-8 h-8 text-white/60" />
+    <div className="mx-auto max-w-2xl space-y-8">
+      {/* Identity, on a tinted panel with the illustration alongside.
+          The art is hidden below `sm`: on a phone it would push the shop's own
+          name and description under the fold, and decoration never gets to
+          outrank the thing the page is about. */}
+      <header className="card relative overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ background: 'var(--brand-soft)' }}
+        />
+
+        <div className="relative flex items-center gap-6 p-6 sm:p-7">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            {store.storeLogo ? (
+              // Owner-supplied URL, often a base64 data URI — next/image would
+              // need every possible host allow-listed.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={store.storeLogo}
+                alt=""
+                className="h-16 w-16 flex-none rounded-lg border border-hairline object-cover"
+              />
+            ) : (
+              <span
+                className="flex h-16 w-16 flex-none items-center justify-center rounded-lg text-[26px] font-bold"
+                style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}
+                aria-hidden
+              >
+                {store.storeName?.charAt(0)?.toUpperCase() || 'S'}
+              </span>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[26px] leading-tight">{store.storeName}</h1>
+              {store.storeDescription && (
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-3">
+                  {store.storeDescription}
+                </p>
+              )}
+              {store.verification?.isVerified && (
+                <span
+                  className="chip mt-2.5"
+                  style={{ background: 'var(--ok-soft)', color: 'var(--ok)' }}
+                >
+                  <BadgeCheck className="h-3 w-3" />
+                  Verified shop
+                </span>
+              )}
             </div>
-          )}
-          <div>
-            <h1 className="text-2xl font-bold">{store.storeName}</h1>
-            <p className="text-gray-400">{store.storeDescription || 'Your trusted data provider'}</p>
           </div>
+
+          <DeliveredArt className="hidden h-[130px] w-[200px] flex-none text-ink sm:block" />
         </div>
+      </header>
 
-        {store.verification?.isVerified && (
-          <div className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full text-sm font-medium">
-            <Shield className="w-4 h-4" />
-            Verified Store
-          </div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl p-2 mb-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex gap-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {/* About Tab */}
-        {activeTab === 'about' && (
-          <>
-            {/* Store Info */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Store Information</h2>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Store className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Business Name</p>
-                      <p className="font-medium text-gray-900 dark:text-white">{store.storeName}</p>
-                    </div>
-                  </div>
-
-                  {store.contactInfo?.email && (
-                    <div className="flex items-start gap-3">
-                      <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{store.contactInfo.email}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {store.contactInfo?.phoneNumber && (
-                    <div className="flex items-start gap-3">
-                      <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{store.contactInfo.phoneNumber}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Established</p>
-                      <p className="font-medium text-gray-900 dark:text-white">{formatDate(store.createdAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">In Business</p>
-                      <p className="font-medium text-gray-900 dark:text-white">{calculateDays()} days</p>
-                    </div>
-                  </div>
-
-                  {store.contactInfo?.address?.city && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Location</p>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {store.contactInfo.address.city}, {store.contactInfo.address.region || 'Ghana'}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Why Choose Us */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Why Choose Us?</h2>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-yellow-100 dark:bg-yellow-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Zap className="w-7 h-7 text-yellow-600 dark:text-yellow-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Fast Delivery</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Get your data bundles delivered within 10-60 minutes
-                  </p>
-                </div>
-
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-green-100 dark:bg-green-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Shield className="w-7 h-7 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Secure Payments</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    100% secure payment processing with multiple options
-                  </p>
-                </div>
-
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Heart className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">24/7 Support</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Always here to help via WhatsApp or phone
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Mission */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Our Mission</h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                To provide affordable and reliable data bundles to everyone, making internet connectivity
-                accessible for work, education, and entertainment.
-              </p>
-
-              <div className="space-y-3">
-                {[
-                  'Quality service with fast delivery',
-                  'Affordable pricing for all budgets',
-                  'Dedicated customer support',
-                  'All major networks supported'
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Stats Tab */}
-        {activeTab === 'stats' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 text-center">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                {store.metrics?.totalCustomers || 100}+
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Happy Customers</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 text-center">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Package className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                {store.metrics?.totalOrders || 500}+
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Orders Completed</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 text-center">
-              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                {store.metrics?.rating?.toFixed(1) || '4.8'}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Average Rating</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 text-center">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <TrendingUp className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">99%</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Success Rate</p>
-            </div>
-          </div>
-        )}
-
-        {/* Policies Tab */}
-        {activeTab === 'policies' && (
-          <div className="space-y-4">
-            {store.policies?.termsAndConditions && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Terms and Conditions</h3>
-                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{store.policies.termsAndConditions}</p>
-              </div>
-            )}
-
-            {store.policies?.privacyPolicy && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Privacy Policy</h3>
-                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{store.policies.privacyPolicy}</p>
-              </div>
-            )}
-
-            {store.policies?.refundPolicy && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Refund Policy</h3>
-                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{store.policies.refundPolicy}</p>
-              </div>
-            )}
-
-            {store.policies?.deliveryPolicy && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Delivery Policy</h3>
-                <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{store.policies.deliveryPolicy}</p>
-              </div>
-            )}
-
-            {!store.policies?.termsAndConditions && !store.policies?.privacyPolicy &&
-             !store.policies?.refundPolicy && !store.policies?.deliveryPolicy && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 text-center">
-                <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">No policies have been published yet.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Contact CTA */}
-      <div className="mt-8 bg-gray-900 text-white rounded-2xl p-8 text-center">
-        <h2 className="text-xl font-bold mb-2">Have Questions?</h2>
-        <p className="text-gray-400 mb-6">We're here to help! Contact us anytime.</p>
-        <div className="flex flex-wrap gap-4 justify-center">
-          {store.contactInfo?.whatsappNumber && (
-            <a
-              href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-400 text-white font-semibold rounded-xl transition"
-            >
-              <MessageCircle className="w-5 h-5" />
-              WhatsApp Us
-            </a>
+      {/* Facts we actually hold */}
+      <section className="space-y-3">
+        <h2 className="text-[15px]">Shop details</h2>
+        <dl className="card divide-y divide-hairline">
+          {store.contactInfo?.email && (
+            <Detail Icon={Mail} label="Email">
+              <a href={`mailto:${store.contactInfo.email}`} className="hover:underline">
+                {store.contactInfo.email}
+              </a>
+            </Detail>
           )}
           {store.contactInfo?.phoneNumber && (
-            <a
-              href={`tel:${store.contactInfo.phoneNumber}`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl transition"
-            >
-              <Phone className="w-5 h-5" />
-              Call Us
-            </a>
+            <Detail Icon={Phone} label="Phone">
+              <a href={`tel:${store.contactInfo.phoneNumber}`} className="num hover:underline">
+                {store.contactInfo.phoneNumber}
+              </a>
+            </Detail>
           )}
-        </div>
-      </div>
+          {whatsapp && (
+            <Detail Icon={WhatsAppIcon} label="WhatsApp">
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                Message the shop
+              </a>
+            </Detail>
+          )}
+          {city && (
+            <Detail Icon={MapPin} label="Location">
+              {city}
+              {store.contactInfo?.address?.region ? `, ${store.contactInfo.address.region}` : ', Ghana'}
+            </Detail>
+          )}
+          {/* The month it opened, not "N days in business" — that phrasing turns
+              every young shop into an argument against itself. */}
+          {established && (
+            <Detail Icon={Calendar} label="Selling since">
+              {established}
+            </Detail>
+          )}
+        </dl>
+      </section>
+
+      {/* Only what the owner actually wrote. No placeholder policies. */}
+      {published.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-[15px]">Policies</h2>
+          <div className="card divide-y divide-hairline">
+            {published.map(([key, label]) => (
+              <div key={key} className="px-5 py-4">
+                <h3 className="text-[13.5px]">{label}</h3>
+                <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-ink-3">
+                  {store.policies[key]}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(whatsapp || store.contactInfo?.phoneNumber) && (
+        <section className="flex flex-col items-start gap-3 border-t border-hairline pt-7 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[15px]">Questions?</h2>
+            <p className="mt-1 text-[13px] text-ink-3">
+              Reach {store.storeName} directly — a person answers.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {whatsapp && (
+              <a
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost"
+              >
+                <span style={{ color: '#25D366' }} className="flex">
+                  <WhatsAppIcon className="h-4 w-4" />
+                </span>
+                WhatsApp
+              </a>
+            )}
+            {store.contactInfo?.phoneNumber && (
+              <a href={`tel:${store.contactInfo.phoneNumber}`} className="btn btn-ghost">
+                <Phone className="h-4 w-4" />
+                Call
+              </a>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

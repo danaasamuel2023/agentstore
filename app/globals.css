@@ -2,25 +2,369 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================================
+   Design tokens.
+
+   Two rules keep this from drifting back into template-land:
+
+     1. Surfaces are separated by HAIRLINES, not drop shadows. Shadow is
+        reserved for things that genuinely float (menus, modals, sticky bars).
+     2. There is exactly ONE saturated colour on the page: the store owner's
+        brand. Plus the three network colours, which are not ours to change.
+        No decorative gradients.
+
+   --brand is injected per store at runtime by lib/storeTheme.js. The value
+   below is only what a store with no colour set falls back to.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --paper:            #ffffff;   /* cards, header */
+  --canvas:           #f6f7f9;   /* page behind the cards */
+  --sunken:           #eef0f4;   /* inputs, wells, skeletons */
+  --hairline:         #e3e6ec;   /* every border on the page */
+  --hairline-strong:  #ccd2dc;
+
+  /* Text */
+  --ink:    #0b0f14;   /* headings, prices */
+  --ink-2:  #38424f;   /* body */
+  --ink-3:  #6a7585;   /* labels, meta, captions */
+  --ink-4:  #97a1b0;   /* placeholder, disabled */
+
+  /* Brand — overridden per store */
+  --brand:       #0e7c5a;
+  --brand-ink:   #ffffff;   /* readable text ON --brand */
+  --brand-soft:  color-mix(in srgb, var(--brand) 10%, var(--paper));
+  /* Drawn only when the brand would otherwise vanish into the page — a
+     near-black brand on the dark theme, a near-white one on the light theme.
+     lib/storeTheme.js decides; transparent for nearly every shop. */
+  --brand-edge:  transparent;
+  --brand-line:  color-mix(in srgb, var(--brand) 26%, var(--hairline));
+
+  /* Status */
+  --ok:        #15803d;
+  --ok-soft:   #eaf6ee;
+  --warn:      #a16207;
+  --warn-soft: #fdf6e3;
+  --bad:       #b42318;
+  --bad-soft:  #fdeceb;
+
+  /* Network colours — fixed. These are the telcos own marks, not ours. */
+  --mtn:         #ffcc00;
+  --mtn-ink:     #101010;
+  --telecel:     #e11d2e;
+  --telecel-ink: #ffffff;
+  --at:          #6d28d9;
+  --at-ink:      #ffffff;
+
+  /* Geometry — a small set, used consistently */
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   14px;
+  --r-pill: 999px;
+
+  /* Elevation — only for things that float */
+  --lift-1: 0 1px 2px rgba(11, 15, 20, .05);
+  --lift-2: 0 4px 16px -4px rgba(11, 15, 20, .12), 0 1px 3px rgba(11, 15, 20, .05);
+  --lift-3: 0 18px 48px -12px rgba(11, 15, 20, .28);
+
+  --ring: 0 0 0 3px color-mix(in srgb, var(--brand) 24%, transparent);
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --paper:           #10151b;
+  --canvas:          #0a0e13;
+  --sunken:          #171d25;
+  --hairline:        #222a34;
+  --hairline-strong: #2f3945;
+
+  --ink:   #eef2f7;
+  --ink-2: #b9c3d0;
+  --ink-3: #8592a3;
+  --ink-4: #64707f;
+
+  --brand-soft: color-mix(in srgb, var(--brand) 18%, var(--paper));
+  --brand-line: color-mix(in srgb, var(--brand) 34%, var(--hairline));
+
+  --ok:        #4ade80;
+  --ok-soft:   #10241a;
+  --warn:      #fbbf24;
+  --warn-soft: #251d0a;
+  --bad:       #fca5a5;
+  --bad-soft:  #2a1414;
+
+  --lift-1: 0 1px 2px rgba(0, 0, 0, .5);
+  --lift-2: 0 4px 16px -4px rgba(0, 0, 0, .6), 0 1px 3px rgba(0, 0, 0, .4);
+  --lift-3: 0 18px 48px -12px rgba(0, 0, 0, .8);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper:           var(--paper);
+  --color-canvas:          var(--canvas);
+  --color-sunken:          var(--sunken);
+  --color-hairline:        var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  --color-ink:   var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  --color-brand:      var(--brand);
+  --color-brand-ink:  var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
+
+  --color-ok:        var(--ok);
+  --color-ok-soft:   var(--ok-soft);
+  --color-warn:      var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad:       var(--bad);
+  --color-bad-soft:  var(--bad-soft);
+
+  --color-mtn:     var(--mtn);
+  --color-telecel: var(--telecel);
+  --color-at:      var(--at);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink-2);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  color: var(--ink);
+  font-weight: 640;
+  letter-spacing: -0.021em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+/* Prices, data sizes, order counts. Tabular figures stop columns of numbers
+   from jittering as they update, which is most of why a price list reads as
+   sloppy. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  letter-spacing: -0.015em;
+}
+
+/* Small uppercase section label, used instead of yet another bold heading. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-sm);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   Components
+   -------------------------------------------------------------------------- */
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+}
+
+/* Rows in a price list share one border box rather than each floating as its
+   own card — it reads as a table, which is what a bundle list actually is. */
+.stack {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.stack > * + * {
+  border-top: 1px solid var(--hairline);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  font-weight: 560;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 1rem;
+  height: 42px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-brand {
+  background: var(--brand);
+  color: var(--brand-ink);
+  border-color: var(--brand-edge);
+}
+.btn-brand:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 88%, #000);
+}
+
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--sunken); }
+
+.btn-quiet {
+  background: transparent;
+  color: var(--ink-3);
+}
+.btn-quiet:hover:not(:disabled) { color: var(--ink); }
+
+.btn-lg { height: 50px; font-size: 15px; padding: 0 1.4rem; }
+
+.field {
+  width: 100%;
+  height: 44px;
+  padding: 0 .8rem;
+  background: var(--paper);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: 15px;
+  transition: border-color .15s ease;
+}
+.field::placeholder { color: var(--ink-4); }
+.field:focus { border-color: var(--brand); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  height: 24px;
+  padding: 0 .5rem;
+  border-radius: var(--r-xs);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+/* A live dot that breathes slowly. One moving thing on the page, not five. */
+.pulse-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--ok);
+  opacity: .55;
+  animation: breathe 2.6s ease-out infinite;
+}
+@keyframes breathe {
+  0%   { transform: scale(.6); opacity: .6; }
+  70%  { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.skeleton {
+  background: var(--sunken);
+  border-radius: var(--r-sm);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Entrance animations.
+
+   These lived in a `<style jsx global>` block at the bottom of
+   StoreLayoutClient, which meant the announcement popup silently lost its
+   animations on any page that rendered outside that shell. They belong here.
+   -------------------------------------------------------------------------- */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+.animate-fadeIn      { animation: fadeIn .24s ease-out forwards; }
+.animate-scaleIn     { animation: scaleIn .24s ease-out forwards; }
+.animate-slideUp     { animation: slideUp .3s ease-out forwards; }
+.animate-slideDown   { animation: slideDown .24s ease-out forwards; }
+.animate-slide-in    { animation: slideInRight .26s ease-out forwards; }
+.animate-slideInRight{ animation: slideInRight .26s ease-out forwards; }
+.animate-shrink      { animation: shrink linear forwards; }
+
+html { scroll-behavior: smooth; }
+
+/* Tap feedback on touch devices, where there is no hover to give it. */
+@media (hover: none) {
+  button:active, a:active { transform: scale(.985); transition: transform .1s; }
 }

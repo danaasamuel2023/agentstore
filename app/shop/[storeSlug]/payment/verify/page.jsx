@@ -2,7 +2,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, XCircle, Clock, Loader2, Phone, Home, ShoppingBag, MessageCircle, Copy, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Loader2, Phone, Home, ShoppingBag, Copy, RefreshCw } from 'lucide-react';
+import WhatsAppIcon from '../../components/WhatsAppIcon';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
 
@@ -188,7 +189,7 @@ function PaymentVerifyContent() {
               {whatsapp && (
                 <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, confirming payment ref: ${reference || 'N/A'}`} target="_blank" rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><MessageCircle className="w-3.5 h-3.5" /> Support</a>
+                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
               )}
               <Link href={`/shop/${params.storeSlug}`}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
@@ -245,7 +246,7 @@ function PaymentVerifyContent() {
               {whatsapp && (
                 <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, help with order ${transaction?.transactionId}`} target="_blank" rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><MessageCircle className="w-3.5 h-3.5" /> Support</a>
+                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
               )}
               <Link href={`/shop/${params.storeSlug}/products`}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 text-xs font-semibold rounded-xl transition active:scale-[0.98]"
@@ -288,7 +289,7 @@ function PaymentVerifyContent() {
               {whatsapp && (
                 <a href={`https://wa.me/${whatsapp.replace(/\D/g, '')}?text=Hi, payment issue. Ref: ${reference || 'N/A'}`} target="_blank" rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-xl transition active:scale-[0.98]"
-                ><MessageCircle className="w-3.5 h-3.5" /> Support</a>
+                ><WhatsAppIcon className="w-3.5 h-3.5" /> Support</a>
               )}
               <Link href={`/shop/${params.storeSlug}/products`}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"

@@ -1,124 +1,146 @@
 'use client';
+
+/**
+ * Announcement popup.
+ *
+ * Behaviour is unchanged — same four styles, same showOnce handling, same
+ * auto-dismiss on the toast. What changed is where the colour comes from.
+ *
+ * Every variant used to hardcode Tailwind's palette (`bg-blue-500`,
+ * `bg-purple-500`, `text-yellow-600`…), so a shop with a green brand still got
+ * a bright blue modal over the top of it — the one element on the page that
+ * ignored the owner entirely. Types now map onto the design tokens: `info` and
+ * `promo` take the store's own brand colour, `warning` and `success` take the
+ * status tokens they actually mean.
+ */
+
 import { useState, useEffect } from 'react';
-import { X, Info, Gift, AlertTriangle, CheckCircle, ExternalLink, Bell } from 'lucide-react';
+import { X, Info, Gift, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
 import { shouldShowAnnouncement, markAnnouncementShown } from '@/lib/designCache';
 
-const typeIcons = {
+const TYPE_ICONS = {
   info: Info,
   promo: Gift,
   warning: AlertTriangle,
-  success: CheckCircle
+  success: CheckCircle,
 };
 
-const typeColors = {
-  info: { bg: 'bg-blue-500', light: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
-  promo: { bg: 'bg-purple-500', light: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
-  warning: { bg: 'bg-yellow-500', light: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200' },
-  success: { bg: 'bg-green-500', light: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' }
+/* token: the solid fill. onToken: readable text on that fill.
+   soft: the tinted background. line: the border for the tinted background. */
+const TYPE_TOKENS = {
+  info:    { solid: 'var(--brand)', on: 'var(--brand-ink)', soft: 'var(--brand-soft)', line: 'var(--brand-line)', text: 'var(--brand)' },
+  promo:   { solid: 'var(--brand)', on: 'var(--brand-ink)', soft: 'var(--brand-soft)', line: 'var(--brand-line)', text: 'var(--brand)' },
+  warning: { solid: 'var(--warn)',  on: '#ffffff',          soft: 'var(--warn-soft)',  line: 'var(--warn)',       text: 'var(--warn)' },
+  success: { solid: 'var(--ok)',    on: '#ffffff',          soft: 'var(--ok-soft)',    line: 'var(--ok)',         text: 'var(--ok)' },
 };
 
-/**
- * Banner Style - Appears at top of page
- */
-const BannerAnnouncement = ({ announcement, onClose, theme }) => {
-  const colors = typeColors[announcement.type] || typeColors.info;
-  const Icon = typeIcons[announcement.type] || Info;
+const tokensFor = (type) => TYPE_TOKENS[type] || TYPE_TOKENS.info;
+
+function LearnMore({ announcement, colour, compact }) {
+  if (!announcement.link) return null;
+  return (
+    <a
+      href={announcement.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 font-medium hover:underline ${compact ? 'text-[12.5px]' : 'text-[13.5px]'}`}
+      style={{ color: colour }}
+    >
+      {announcement.linkText || 'Learn more'}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+const Banner = ({ announcement, onClose }) => {
+  const t = tokensFor(announcement.type);
+  const Icon = TYPE_ICONS[announcement.type] || Info;
 
   return (
-    <div className={`${colors.bg} text-white py-3 px-4 relative animate-slideDown`}>
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1">
-          <Icon className="w-5 h-5 flex-shrink-0" />
-          <div className="flex-1">
-            {announcement.title && (
-              <span className="font-semibold mr-2">{announcement.title}</span>
-            )}
-            <span className="text-white/90">{announcement.message}</span>
-          </div>
-          {announcement.link && (
-            <a
-              href={announcement.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-sm font-medium bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition whitespace-nowrap"
-            >
-              {announcement.linkText || 'Learn More'}
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
-        </div>
+    <div
+      className="animate-slideDown px-4 py-2.5"
+      style={{ background: t.solid, color: t.on }}
+    >
+      <div className="mx-auto flex max-w-5xl items-center gap-3">
+        <Icon className="h-4 w-4 flex-none" />
+        <p className="min-w-0 flex-1 text-[13px]">
+          {announcement.title && <span className="font-semibold">{announcement.title} </span>}
+          <span className="opacity-90">{announcement.message}</span>
+        </p>
+        {announcement.link && (
+          <a
+            href={announcement.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden whitespace-nowrap rounded-sm px-2.5 py-1 text-[12.5px] font-medium transition-opacity hover:opacity-80 sm:inline-flex sm:items-center sm:gap-1.5"
+            style={{ background: 'rgba(255,255,255,.18)' }}
+          >
+            {announcement.linkText || 'Learn more'}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
         <button
+          type="button"
           onClick={onClose}
-          className="p-1 hover:bg-white/20 rounded-full transition"
-          aria-label="Close announcement"
+          className="flex-none rounded-sm p-1 transition-opacity hover:opacity-70"
+          aria-label="Dismiss announcement"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 };
 
-/**
- * Modal Style - Center of screen overlay
- */
-const ModalAnnouncement = ({ announcement, onClose, theme }) => {
-  const colors = typeColors[announcement.type] || typeColors.info;
-  const Icon = typeIcons[announcement.type] || Info;
+const Modal = ({ announcement, onClose }) => {
+  const t = tokensFor(announcement.type);
+  const Icon = TYPE_ICONS[announcement.type] || Info;
+
+  // Escape closes. A modal that can only be dismissed by finding the small X is
+  // a modal people close by leaving the site.
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+    <div className="animate-fadeIn fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-scaleIn">
-        {/* Header */}
-        <div className={`${colors.bg} px-6 py-4 flex items-center gap-3`}>
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-white">
-              {announcement.title || 'Announcement'}
-            </h3>
+      <div
+        className="animate-scaleIn relative w-full max-w-sm overflow-hidden rounded-lg bg-paper"
+        style={{ boxShadow: 'var(--lift-3)' }}
+      >
+        <div className="flex items-start gap-3 border-b border-hairline p-5">
+          <span
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
+            style={{ background: t.soft, color: t.text }}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <h3 className="text-[15.5px]">{announcement.title || 'Announcement'}</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-full transition"
+            className="-mr-1 -mt-1 flex-none rounded-sm p-1.5 text-ink-4 transition-colors hover:text-ink"
+            aria-label="Close"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-            {announcement.message}
-          </p>
-
-          {announcement.link && (
-            <a
-              href={announcement.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`mt-4 inline-flex items-center gap-2 ${colors.text} font-medium hover:underline`}
-            >
-              {announcement.linkText || 'Learn More'}
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
+        <div className="space-y-3 p-5">
+          <p className="text-[14px] leading-relaxed text-ink-2">{announcement.message}</p>
+          <LearnMore announcement={announcement} colour={t.text} />
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
-          <button
-            onClick={onClose}
-            className={`w-full py-3 rounded-xl font-medium text-white transition hover:opacity-90 ${colors.bg}`}
-          >
+        <div className="border-t border-hairline p-4">
+          <button type="button" onClick={onClose} className="btn btn-brand w-full">
             Got it
           </button>
         </div>
@@ -127,141 +149,114 @@ const ModalAnnouncement = ({ announcement, onClose, theme }) => {
   );
 };
 
-/**
- * Slide Style - Slides in from bottom
- */
-const SlideAnnouncement = ({ announcement, onClose, theme }) => {
-  const colors = typeColors[announcement.type] || typeColors.info;
-  const Icon = typeIcons[announcement.type] || Info;
+const Slide = ({ announcement, onClose }) => {
+  const t = tokensFor(announcement.type);
+  const Icon = TYPE_ICONS[announcement.type] || Info;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[100] animate-slideUp">
-      <div className={`${colors.light} border ${colors.border} rounded-2xl shadow-lg overflow-hidden`}>
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            <div className={`w-10 h-10 ${colors.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-              <Icon className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              {announcement.title && (
-                <h4 className={`font-semibold ${colors.text} mb-1`}>{announcement.title}</h4>
-              )}
-              <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                {announcement.message}
-              </p>
-              {announcement.link && (
-                <a
-                  href={announcement.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`mt-2 inline-flex items-center gap-1 ${colors.text} text-sm font-medium hover:underline`}
-                >
-                  {announcement.linkText || 'Learn More'}
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
+    <div className="animate-slideUp fixed bottom-4 left-4 right-4 z-[100] md:left-auto md:w-80">
+      <div
+        className="overflow-hidden rounded-lg border bg-paper"
+        style={{ borderColor: t.line, boxShadow: 'var(--lift-2)' }}
+      >
+        <div className="flex items-start gap-3 p-4">
+          <span
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-md"
+            style={{ background: t.soft, color: t.text }}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1 space-y-1">
+            {announcement.title && <h4 className="text-[13.5px]">{announcement.title}</h4>}
+            <p className="text-[13px] leading-relaxed text-ink-3">{announcement.message}</p>
+            <LearnMore announcement={announcement} colour={t.text} compact />
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="-mr-1 -mt-1 flex-none rounded-sm p-1 text-ink-4 transition-colors hover:text-ink"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-/**
- * Toast Style - Small notification
- */
-const ToastAnnouncement = ({ announcement, onClose, theme }) => {
-  const colors = typeColors[announcement.type] || typeColors.info;
-  const Icon = typeIcons[announcement.type] || Info;
+const Toast = ({ announcement, onClose }) => {
+  const t = tokensFor(announcement.type);
+  const Icon = TYPE_ICONS[announcement.type] || Info;
 
   useEffect(() => {
-    // Auto-close after 8 seconds
     const timer = setTimeout(onClose, 8000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   return (
-    <div className="fixed top-20 right-4 z-[100] animate-slideInRight">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg max-w-sm overflow-hidden">
-        <div className="flex items-center gap-3 p-4">
-          <div className={`w-8 h-8 ${colors.bg} rounded-lg flex items-center justify-center flex-shrink-0`}>
-            <Icon className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              {announcement.title && <span className="font-semibold">{announcement.title}: </span>}
-              {announcement.message}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition"
+    <div className="animate-slideInRight fixed right-4 top-20 z-[100]">
+      <div
+        className="max-w-xs overflow-hidden rounded-lg border border-hairline bg-paper"
+        style={{ boxShadow: 'var(--lift-2)' }}
+      >
+        <div className="flex items-center gap-2.5 p-3.5">
+          <span
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-md"
+            style={{ background: t.soft, color: t.text }}
           >
-            <X className="w-4 h-4 text-gray-400" />
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-0 flex-1 text-[13px] leading-snug text-ink-2">
+            {announcement.title && <span className="font-semibold text-ink">{announcement.title}: </span>}
+            {announcement.message}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-none rounded-sm p-1 text-ink-4 transition-colors hover:text-ink"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
-        {/* Progress bar */}
-        <div className="h-1 bg-gray-100 dark:bg-gray-800">
-          <div
-            className={`h-full ${colors.bg} animate-shrink`}
-            style={{ animationDuration: '8s' }}
-          />
+        <div className="h-0.5 bg-sunken">
+          <div className="animate-shrink h-full" style={{ background: t.solid, animationDuration: '8s' }} />
         </div>
       </div>
     </div>
   );
 };
 
-/**
- * Main Announcement Popup Component
- */
-export default function AnnouncementPopup({ announcement, style = 'banner', theme }) {
+/* -------------------------------------------------------------------------- */
+
+export default function AnnouncementPopup({ announcement, style = 'banner' }) {
   const [visible, setVisible] = useState(false);
   const [closed, setClosed] = useState(false);
 
   useEffect(() => {
-    if (shouldShowAnnouncement(announcement)) {
-      if (style === 'banner') {
-        // Banner is inline content — show immediately to avoid CLS
-        setVisible(true);
-      } else {
-        // Overlays (modal/slide/toast) don't shift layout, small delay is fine
-        const timer = setTimeout(() => setVisible(true), 500);
-        return () => clearTimeout(timer);
-      }
+    if (!shouldShowAnnouncement(announcement)) return;
+
+    // The banner is inline content, so showing it late would shove the page
+    // down under the reader. Overlays float and can afford the delay.
+    if (style === 'banner') {
+      setVisible(true);
+      return;
     }
+    const timer = setTimeout(() => setVisible(true), 500);
+    return () => clearTimeout(timer);
   }, [announcement, style]);
 
   const handleClose = () => {
     setVisible(false);
     setClosed(true);
-
-    // Mark as shown if showOnce is enabled
-    if (announcement?.showOnce) {
-      markAnnouncementShown(announcement);
-    }
+    if (announcement?.showOnce) markAnnouncementShown(announcement);
   };
 
   if (!visible || closed || !announcement) return null;
 
-  // Render based on style
-  switch (style) {
-    case 'banner':
-      return <BannerAnnouncement announcement={announcement} onClose={handleClose} theme={theme} />;
-    case 'modal':
-      return <ModalAnnouncement announcement={announcement} onClose={handleClose} theme={theme} />;
-    case 'slide':
-      return <SlideAnnouncement announcement={announcement} onClose={handleClose} theme={theme} />;
-    case 'toast':
-      return <ToastAnnouncement announcement={announcement} onClose={handleClose} theme={theme} />;
-    default:
-      return null;
-  }
+  const Variant = { banner: Banner, modal: Modal, slide: Slide, toast: Toast }[style];
+  if (!Variant) return null;
+
+  return <Variant announcement={announcement} onClose={handleClose} />;
 }

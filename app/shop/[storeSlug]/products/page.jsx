@@ -4,31 +4,13 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown } from 'lucide-react';
 import { DeliveryEtaBanner, DeliveryEtaInline } from '../components/DeliveryEta';
 import VerifyNumberModal from '../components/VerifyNumberModal';
+import { MTNLogo, TelecelLogo, ATLogo } from '../components/NetworkLogo';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
 // Network Logos
-const MTNLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-    <rect width="80" height="80" rx="16" fill="#FFCC00"/>
-    <ellipse cx="40" cy="40" rx="30" ry="20" stroke="#000" strokeWidth="3" fill="none"/>
-    <text x="40" y="46" textAnchor="middle" fontFamily="Arial Black" fontSize="14" fontWeight="900" fill="#000">MTN</text>
-  </svg>
-);
-
-const TelecelLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#DC2626"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="18" fill="#fff">T</text>
-  </svg>
-);
-
-const ATLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#7C3AED"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="14" fill="#fff">AT</text>
-  </svg>
-);
+// Network marks now live in components/NetworkLogo.jsx — same artwork,
+// one copy, so a change to a logo reaches every page at once.
 
 // Toast notification
 const Toast = ({ message, type, onClose }) => {
@@ -58,7 +40,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
   const getStyle = (network) => {
     if (network === 'YELLO') return { bg: 'from-yellow-400 to-yellow-500', text: 'text-black', btn: 'bg-yellow-500 hover:bg-yellow-400 text-black', name: 'MTN' };
     if (network === 'TELECEL') return { bg: 'from-red-500 to-red-600', text: 'text-white', btn: 'bg-red-600 hover:bg-red-500 text-white', name: 'Telecel' };
-    if (network === 'AT_PREMIUM') return { bg: 'from-purple-500 to-purple-600', text: 'text-white', btn: 'bg-purple-600 hover:bg-purple-500 text-white', name: 'AirtelTigo' };
+    if (network === 'AT_PREMIUM') return { bg: 'from-[#24487F] to-[#1E3A6B]', text: 'text-white', btn: 'bg-[#1E3A6B] hover:bg-[#24487F] text-white', name: 'AirtelTigo' };
     return { bg: 'from-gray-500 to-gray-600', text: 'text-white', btn: 'bg-gray-600 text-white', name: network };
   };
   
@@ -67,7 +49,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl">
+      <div className="bg-paper rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl">
         
         <div className={`bg-gradient-to-r ${style.bg} ${style.text} p-6 text-center`}>
           <h2 className="text-xl font-bold">Confirm Purchase</h2>
@@ -75,9 +57,9 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
         </div>
         
         <div className="p-6">
-          <div className="bg-gray-50 rounded-2xl p-5 mb-4 text-center">
-            <p className="text-gray-500 text-sm mb-2">Sending data to</p>
-            <p className="text-2xl font-bold text-gray-900 tracking-wider">{phoneNumber}</p>
+          <div className="bg-sunken rounded-2xl p-5 mb-4 text-center">
+            <p className="text-ink-3 text-sm mb-2">Sending data to</p>
+            <p className="text-2xl font-bold text-ink tracking-wider">{phoneNumber}</p>
             <div className="mt-3 flex items-center justify-center gap-2">
               <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${style.btn}`}>
                 {product.capacity}GB {style.name}
@@ -86,8 +68,8 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
           </div>
           
           {/* Delivery ETA — same logic as mtnup2u + /orders on DataMart */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
-            <p className="text-[10px] text-gray-400 uppercase font-semibold mb-1 text-center">Estimated Delivery</p>
+          <div className="bg-sunken border border-hairline rounded-xl p-3 mb-3">
+            <p className="text-[10px] text-ink-4 uppercase font-semibold mb-1 text-center">Estimated Delivery</p>
             <DeliveryEtaInline />
           </div>
 
@@ -101,7 +83,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition disabled:opacity-50"
+              className="flex-1 py-3 bg-sunken hover:bg-hairline text-ink-2 font-semibold rounded-xl transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -156,12 +138,12 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
       logo: <TelecelLogo size={36} />
     };
     if (network === 'AT_PREMIUM') return { 
-      card: 'bg-purple-600', 
-      expanded: 'bg-purple-700',
+      card: 'bg-[#1E3A6B]', 
+      expanded: 'bg-[#24487F]',
       text: 'text-white', 
       subtext: 'text-white/60',
       input: 'bg-white/90 placeholder-gray-500 focus:ring-white',
-      btn: 'bg-purple-900 text-white hover:bg-purple-800',
+      btn: 'bg-[#0F2447] text-white hover:bg-[#16305C]',
       name: 'AirtelTigo',
       logo: <ATLogo size={36} />
     };
@@ -341,9 +323,11 @@ function ProductsContent() {
   const [products, setProducts] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [network, setNetwork] = useState(searchParams.get('network') || 'all');
-  const [sortBy, setSortBy] = useState('price_low');
-  const [search, setSearch] = useState('');
+  /* MTN is selected on arrival, not "all". Most bundles sold here are MTN, and
+     a mixed grid makes someone scan past two networks they did not want before
+     reaching theirs. A ?network= link still wins, so the home page's network
+     shortcuts land where they say they will. */
+  const [network, setNetwork] = useState(searchParams.get('network') || 'YELLO');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
   const [paymentMethodModal, setPaymentMethodModal] = useState({ show: false, product: null, phone: '', name: '', reference: '', transactionId: '', authorizationUrl: '' });
@@ -360,7 +344,19 @@ function ProductsContent() {
 
   useEffect(() => {
     filterProducts();
-  }, [products, network, sortBy, search]);
+  }, [products, network]);
+
+  /* Not every shop stocks MTN. Once the catalogue lands, if the selected
+     network is not one this shop actually sells, fall to the first it does —
+     otherwise the page opens on an empty grid and looks broken. */
+  useEffect(() => {
+    if (!products.length) return;
+    const stocked = new Set(products.map((p) => p.network));
+    if (!stocked.has(network)) {
+      const order = ['YELLO', 'AT_PREMIUM', 'at', 'TELECEL'];
+      setNetwork(order.find((n) => stocked.has(n)) || products[0].network);
+    }
+  }, [products, network]);
 
   const fetchProducts = async () => {
     try {
@@ -378,26 +374,15 @@ function ProductsContent() {
   };
 
   const filterProducts = () => {
-    let result = [...products];
-    
-    if (network !== 'all') {
-      result = result.filter(p => p.network === network);
-    }
-    
-    if (search) {
-      result = result.filter(p => 
-        p.capacity.toString().includes(search) ||
-        p.network.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-    
-    switch (sortBy) {
-      case 'price_low': result.sort((a, b) => a.sellingPrice - b.sellingPrice); break;
-      case 'price_high': result.sort((a, b) => b.sellingPrice - a.sellingPrice); break;
-      case 'size_low': result.sort((a, b) => a.capacity - b.capacity); break;
-      case 'size_high': result.sort((a, b) => b.capacity - a.capacity); break;
-    }
-    
+    // One network is always selected, so this is unconditional now.
+    let result = products.filter((p) => p.network === network);
+
+    // Always cheapest first. The sort dropdown is gone — four orderings for a
+    // list of two dozen items is a decision nobody wants to make, and price
+    // ascending is what all but a handful would have picked anyway. The sort
+    // itself stays, so the list is never in arbitrary API order.
+    result.sort((a, b) => a.sellingPrice - b.sellingPrice);
+
     setFiltered(result);
   };
 
@@ -593,27 +578,37 @@ function ProductsContent() {
     }, 5000);
   };
 
-  const networks = ['all', ...new Set(products.map(p => p.network))];
+  /* Fixed order: MTN, AirtelTigo, Telecel. Deriving it from the catalogue meant
+     the bar reshuffled whenever the shop's product mix changed, so a regular
+     customer could not build muscle memory for where their network sits. */
+  const NETWORK_ORDER = ['YELLO', 'AT_PREMIUM', 'at', 'TELECEL'];
+  const present = new Set(products.map((p) => p.network));
+  const networks = [
+    ...NETWORK_ORDER.filter((n) => present.has(n)),
+    ...[...present].filter((n) => !NETWORK_ORDER.includes(n)),
+  ];
   
   const getNetworkName = (n) => {
-    if (n === 'all') return 'All Networks';
     if (n === 'YELLO') return 'MTN';
     if (n === 'TELECEL') return 'Telecel';
     if (n === 'AT_PREMIUM') return 'AirtelTigo';
     return n;
   };
 
-  const getNetworkStyle = (n) => {
-    if (n === 'YELLO') return 'bg-yellow-400 text-black';
-    if (n === 'TELECEL') return 'bg-red-600 text-white';
-    if (n === 'AT_PREMIUM') return 'bg-purple-600 text-white';
-    return 'bg-gray-900 text-white';
+  /* Colours for the segmented filter bar — inline values on a joined bar,
+     rather than the Tailwind classes the bundle cards use. */
+  const networkFilterColour = (n) => {
+    if (n === 'YELLO') return { bg: '#FFCC00', ink: '#1A1A1A' };
+    if (n === 'TELECEL') return { bg: '#E11D2E', ink: '#FFFFFF' };
+    if (n === 'AT_PREMIUM' || n === 'at') return { bg: '#1E3A6B', ink: '#FFFFFF' };
+    return { bg: 'var(--brand)', ink: 'var(--brand-ink)' };
   };
+
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-3 border-hairline border-t-gray-900 rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -629,13 +624,13 @@ function ProductsContent() {
       {/* Payment Method Choice Modal */}
       {paymentMethodModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 relative z-10">
+          <div className="bg-paper rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 relative z-10">
             {/* Order Summary */}
             {(() => {
               const p = paymentMethodModal.product;
               const price = p?.isOnSale && p?.salePrice ? p.salePrice : p?.sellingPrice;
               const netName = p?.network === 'YELLO' ? 'MTN' : p?.network === 'TELECEL' ? 'Telecel' : 'AirtelTigo';
-              const netColor = p?.network === 'YELLO' ? 'bg-yellow-400 text-black' : p?.network === 'TELECEL' ? 'bg-red-600 text-white' : 'bg-purple-600 text-white';
+              const netColor = p?.network === 'YELLO' ? 'bg-yellow-400 text-black' : p?.network === 'TELECEL' ? 'bg-red-600 text-white' : 'bg-[#1E3A6B] text-white';
               return (
                 <div className={`rounded-2xl p-4 mb-4 ${netColor}`}>
                   <div className="flex items-center justify-between">
@@ -651,7 +646,7 @@ function ProductsContent() {
                 </div>
               );
             })()}
-            <h3 className="text-sm font-bold text-gray-900 mb-3 text-center">How would you like to pay?</h3>
+            <h3 className="text-sm font-bold text-ink mb-3 text-center">How would you like to pay?</h3>
 
             <div className="space-y-3">
               {/* Direct MoMo */}
@@ -663,8 +658,8 @@ function ProductsContent() {
                     </svg>
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 text-sm">Pay with MoMo</p>
-                    <p className="text-[10px] text-gray-500">Charge your MoMo directly — no redirect</p>
+                    <p className="font-bold text-ink text-sm">Pay with MoMo</p>
+                    <p className="text-[10px] text-ink-3">Charge your MoMo directly — no redirect</p>
                   </div>
                 </div>
                 <input
@@ -672,7 +667,7 @@ function ProductsContent() {
                   placeholder="Enter MoMo number (e.g. 0241234567)"
                   value={momoPayPhone}
                   onChange={(e) => setMomoPayPhone(e.target.value.replace(/[^\d\s\-]/g, ''))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white text-gray-900 text-sm font-medium placeholder-gray-400 focus:outline-none focus:border-amber-500 mb-3"
+                  className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-paper text-ink text-sm font-medium placeholder:text-ink-4 focus:outline-none focus:border-amber-500 mb-3"
                 />
                 <button
                   onClick={handleDirectCharge}
@@ -684,9 +679,9 @@ function ProductsContent() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="text-xs text-gray-400 font-medium">OR</span>
-                <div className="flex-1 h-px bg-gray-200"></div>
+                <div className="h-px flex-1 bg-hairline"></div>
+                <span className="text-xs text-ink-4 font-medium">OR</span>
+                <div className="h-px flex-1 bg-hairline"></div>
               </div>
 
               {/* Paystack Checkout */}
@@ -701,15 +696,15 @@ function ProductsContent() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-sm">Paystack Checkout</p>
-                  <p className="text-[10px] text-gray-500">Card, Bank, USSD, QR, MoMo & more</p>
+                  <p className="font-bold text-ink text-sm">Paystack Checkout</p>
+                  <p className="text-[10px] text-ink-3">Card, Bank, USSD, QR, MoMo & more</p>
                 </div>
               </button>
             </div>
 
             <button
               onClick={() => setPaymentMethodModal(prev => ({ ...prev, show: false }))}
-              className="w-full mt-4 py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700"
+              className="w-full mt-4 py-2.5 text-ink-3 text-sm font-medium hover:text-ink-2"
             >
               Cancel
             </button>
@@ -720,13 +715,13 @@ function ProductsContent() {
       {/* OTP Modal */}
       {otpModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6">
+          <div className="bg-paper rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6">
             <div className="text-center mb-4">
               <div className="w-16 h-16 mx-auto mb-3 bg-blue-100 rounded-full flex items-center justify-center">
                 <Shield className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Enter OTP</h3>
-              <p className="text-sm text-gray-500 mt-1">{otpModal.message || 'Enter the code sent to your phone'}</p>
+              <h3 className="text-lg font-bold text-ink">Enter OTP</h3>
+              <p className="text-sm text-ink-3 mt-1">{otpModal.message || 'Enter the code sent to your phone'}</p>
             </div>
             <input
               type="text"
@@ -735,13 +730,13 @@ function ProductsContent() {
               placeholder="Enter OTP code"
               maxLength={6}
               autoFocus
-              className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 text-center text-2xl font-bold tracking-[0.3em] focus:border-blue-500 focus:outline-none mb-4"
+              className="w-full px-4 py-3.5 rounded-xl border-2 border-hairline text-center text-2xl font-bold tracking-[0.3em] focus:border-blue-500 focus:outline-none mb-4"
             />
             <div className="flex gap-3">
               <button
                 onClick={() => { setOtpModal({ show: false, reference: '', message: '' }); setOtp(''); }}
                 disabled={isProcessing}
-                className="flex-1 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl"
+                className="flex-1 py-3 bg-sunken text-ink-2 font-semibold rounded-xl"
               >
                 Cancel
               </button>
@@ -760,15 +755,15 @@ function ProductsContent() {
       {/* Payment Status Overlay */}
       {paymentStatus && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 text-center">
+          <div className="bg-paper rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl p-6 text-center">
             {paymentStatus === 'pending' ? (
               <>
                 <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
                   <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Approve Payment</h3>
-                <p className="text-sm text-gray-500 mb-4">{statusMessage || 'Please approve the payment on your phone'}</p>
-                <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                <h3 className="text-lg font-bold text-ink mb-2">Approve Payment</h3>
+                <p className="text-sm text-ink-3 mb-4">{statusMessage || 'Please approve the payment on your phone'}</p>
+                <div className="flex items-center justify-center gap-2 text-xs text-ink-4">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   Waiting for confirmation...
                 </div>
@@ -778,8 +773,8 @@ function ProductsContent() {
                 <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
                   <Zap className="w-8 h-8 text-green-600" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Payment Successful!</h3>
-                <p className="text-sm text-gray-500 mb-4">{statusMessage}</p>
+                <h3 className="text-lg font-bold text-ink mb-2">Payment Successful!</h3>
+                <p className="text-sm text-ink-3 mb-4">{statusMessage}</p>
                 <button
                   onClick={() => setPaymentStatus(null)}
                   className="w-full py-3 bg-green-600 text-white font-bold rounded-xl"
@@ -794,75 +789,63 @@ function ProductsContent() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Data Bundles</h1>
-        <p className="text-gray-500">Choose your bundle  and get data instantly</p>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-100">
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search bundles..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl text-sm bg-gray-50 border-0 focus:ring-2 focus:ring-gray-200"
-          />
-        </div>
-        
-        {/* Network & Sort */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Network Tabs */}
-          <div className="flex gap-2 flex-wrap flex-1">
-            {networks.map((n) => (
-              <button
-                key={n}
-                onClick={() => setNetwork(n)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                  network === n
-                    ? getNetworkStyle(n)
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {getNetworkName(n)}
-              </button>
-            ))}
-          </div>
-          
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 rounded-xl text-sm bg-gray-100 border-0 focus:ring-2 focus:ring-gray-200"
-          >
-            <option value="price_low">Price: Low to High</option>
-            <option value="price_high">Price: High to Low</option>
-            <option value="size_low">Size: Small to Large</option>
-            <option value="size_high">Size: Large to Small</option>
-          </select>
-        </div>
-        
-        {/* Stats */}
-        <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-          <span>{filtered.length} bundles</span>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500" /> Fast delivery</span>
-            <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-green-500" /> Secure</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Notice */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <p className="text-amber-800 text-sm">
-          <strong>Note:</strong> Please verify your phone number before purchase. Data is delivered within 10 minutes to 1 hour.
-        </p>
+        <h1 className="text-[26px]">Data bundles</h1>
+        <p className="mt-1 text-[14px] text-ink-3">Pick a size and pay by mobile money.</p>
       </div>
 
       {/* Live delivery ETA — same buckets as mtnup2u + /orders on DataMart */}
       <DeliveryEtaBanner />
+
+      {/* Network filter — one joined segmented bar, each segment in its own
+          network colour, sitting directly above the bundles it filters. It used
+          to be a card of outlined pills up by the page title, separated from the
+          grid by a notice and a banner, so the control and the thing it controls
+          were never on screen together.
+
+          Selection reads by dimming, not by moving: the chosen network sits at
+          full colour and the rest fall back to a third. Nothing shifts, resizes
+          or gains a border, so the bar never reflows as you tap across it. */}
+      {networks.length > 1 && (
+        <div className="space-y-2.5">
+          <div className="flex justify-center">
+            <div
+              className="inline-flex overflow-hidden rounded-xl"
+              role="group"
+              aria-label="Filter by network"
+            >
+              {networks.map((n) => {
+                const active = network === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setNetwork(n)}
+                    className="px-5 py-3 text-[15px] font-bold transition-opacity sm:px-7"
+                    style={{
+                      background: networkFilterColour(n).bg,
+                      color: networkFilterColour(n).ink,
+                      opacity: active ? 1 : 0.34,
+                    }}
+                  >
+                    {getNetworkName(n)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-4 text-xs text-ink-3">
+            <span className="num">{filtered.length} bundles</span>
+            <span className="flex items-center gap-1.5">
+              <Zap className="h-3 w-3" style={{ color: 'var(--warn)' }} /> Fast delivery
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Shield className="h-3 w-3" style={{ color: 'var(--ok)' }} /> Secure
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -879,15 +862,25 @@ function ProductsContent() {
       {/* Empty State */}
       {filtered.length === 0 && (
         <div className="text-center py-16">
-          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No bundles found</h3>
-          <p className="text-gray-500 mb-4">Try changing your filters</p>
-          <button 
-            onClick={() => { setNetwork('all'); setSearch(''); }}
-            className="px-6 py-2 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition"
-          >
-            Clear Filters
-          </button>
+          <Package className="mx-auto mb-4 h-12 w-12 text-ink-4" />
+          <h3 className="text-lg font-semibold text-ink mb-2">No bundles found</h3>
+          <p className="text-ink-3 mb-4">Try changing your filters</p>
+          {networks.filter((n) => n !== network).length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {networks
+                .filter((n) => n !== network)
+                .map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setNetwork(n)}
+                    className="btn btn-ghost"
+                  >
+                    Try {getNetworkName(n)}
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
       )}
       
@@ -907,7 +900,7 @@ export default function ProductsPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-3 border-hairline border-t-gray-900 rounded-full animate-spin"></div>
       </div>
     }>
       <ProductsContent />

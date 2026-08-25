@@ -1,158 +1,122 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+/**
+ * Store shell — a brand's own website, not a listing page.
+ *
+ * SiteNav is FIXED and starts transparent over the home hero, so the shop's
+ * colour runs edge to edge behind its own wordmark before anything else loads
+ * into view. `main` reserves the nav's height; SiteHero cancels that with a
+ * negative margin so it can sit underneath the transparent bar.
+ *
+ * The brand colour is applied once here as CSS custom properties and everything
+ * downstream reads var(--brand). See lib/storeTheme.js for why that matters —
+ * the previous per-file `getThemeColors()` read fields the schema does not have,
+ * so no store's colour ever actually reached the page.
+ */
+
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Phone, MessageCircle, Menu, X, Clock, MapPin, Users, Briefcase, Moon, Sun, ExternalLink } from 'lucide-react';
+import { Users, ExternalLink, Settings, Phone, Store, LogIn, ChevronRight } from 'lucide-react';
+import WhatsAppIcon from './components/WhatsAppIcon';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
+import { storeVars } from '@/lib/storeTheme';
 import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
+import SiteNav, { NAV_LINKS } from './components/SiteNav';
+import VerifyNumberModal from './components/VerifyNumberModal';
 
 const API_BASE = 'https://api.datamartgh.shop';
 
-// Theme color presets (same as homepage)
-const themePresets = {
-  blue: { primary: '#2563EB', secondary: '#1E40AF', accent: '#3B82F6', text: '#FFFFFF' },
-  green: { primary: '#059669', secondary: '#047857', accent: '#10B981', text: '#FFFFFF' },
-  purple: { primary: '#7C3AED', secondary: '#6D28D9', accent: '#8B5CF6', text: '#FFFFFF' },
-  red: { primary: '#DC2626', secondary: '#B91C1C', accent: '#EF4444', text: '#FFFFFF' },
-  orange: { primary: '#EA580C', secondary: '#C2410C', accent: '#F97316', text: '#FFFFFF' },
-  pink: { primary: '#DB2777', secondary: '#BE185D', accent: '#EC4899', text: '#FFFFFF' },
-  teal: { primary: '#0D9488', secondary: '#0F766E', accent: '#14B8A6', text: '#FFFFFF' },
-  indigo: { primary: '#4F46E5', secondary: '#4338CA', accent: '#6366F1', text: '#FFFFFF' },
-  yellow: { primary: '#FACC15', secondary: '#EAB308', accent: '#FDE047', text: '#000000' },
-  dark: { primary: '#1F2937', secondary: '#111827', accent: '#374151', text: '#FFFFFF' },
-};
-
-// Get theme colors from store
-const getThemeColors = (store) => {
-  const themeName = store?.theme?.name || store?.settings?.theme || 'dark';
-  const customPrimary = store?.theme?.primaryColor || store?.settings?.primaryColor;
-  const customSecondary = store?.theme?.secondaryColor || store?.settings?.secondaryColor;
-  const customAccent = store?.theme?.accentColor || store?.settings?.accentColor;
-
-  if (customPrimary) {
-    return {
-      primary: customPrimary,
-      secondary: customSecondary || customPrimary,
-      accent: customAccent || '#FACC15',
-      text: isLightColor(customPrimary) ? '#000000' : '#FFFFFF'
-    };
+function FooterMark({ store, size = 34 }) {
+  if (store?.storeLogo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={store.storeLogo}
+        alt=""
+        className="flex-none rounded-lg border border-hairline object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
   }
-
-  return themePresets[themeName] || themePresets.dark;
-};
-
-// Check if a color is light
-const isLightColor = (color) => {
-  if (!color) return false;
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 155;
-};
+  return (
+    <span
+      className="flex flex-none items-center justify-center rounded-lg font-semibold"
+      style={{ width: size, height: size, background: 'var(--brand)', color: 'var(--brand-ink)', fontSize: size * 0.42 }}
+      aria-hidden
+    >
+      {store?.storeName?.charAt(0)?.toUpperCase() || 'S'}
+    </span>
+  );
+}
 
 export default function StoreLayoutClient({ children, initialStore }) {
   const params = useParams();
   const pathname = usePathname();
+
   const [store, setStore] = useState(initialStore || null);
   const [loading, setLoading] = useState(!initialStore);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [subAgentEnabled, setSubAgentEnabled] = useState(false);
   const [activationFee, setActivationFee] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
   const [designSettings, setDesignSettings] = useState(
     initialStore ? extractDesignSettings(initialStore) : null
   );
 
-  // Initialize dark mode from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('shopDarkMode');
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDarkMode(saved ? saved === 'true' : prefersDark);
-    }
+    const saved = localStorage.getItem('shopDarkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setDarkMode(saved ? saved === 'true' : prefersDark);
   }, []);
 
-  // Apply dark mode class to document
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.documentElement.classList.toggle('dark', darkMode);
-      localStorage.setItem('shopDarkMode', darkMode.toString());
-    }
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('shopDarkMode', String(darkMode));
   }, [darkMode]);
 
   useEffect(() => {
-    // If we have initialStore, just do a background refresh
-    if (initialStore) {
-      refreshStoreInBackground();
-    } else {
-      fetchStore();
-    }
-    checkSubAgentStatus();
-  }, [params.storeSlug]);
-
-  const checkSubAgentStatus = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/sub-agent/store/${params.storeSlug}/join-info`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        setSubAgentEnabled(true);
-        setActivationFee(data.data?.settings?.activationFee?.amount || 0);
+    const load = async () => {
+      if (!initialStore) {
+        const cached = getCachedDesign(params.storeSlug);
+        if (cached) setDesignSettings(cached);
       }
-    } catch (e) {
-      setSubAgentEnabled(false);
-    }
-  };
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
-
-  const refreshStoreInBackground = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/agent-stores/store/${params.storeSlug}`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        setStore(data.data);
-        const newDesignSettings = extractDesignSettings(data.data);
-        setDesignSettings(newDesignSettings);
-        setCachedDesign(params.storeSlug, newDesignSettings);
-        if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/agent-stores/store/${params.storeSlug}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          setStore(data.data);
+          const next = extractDesignSettings(data.data);
+          setDesignSettings(next);
+          setCachedDesign(params.storeSlug, next);
           localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
         }
+      } catch {
+        // Keep whatever we rendered with — a stale shop beats no shop.
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
+    };
 
-  const fetchStore = async () => {
-    try {
-      const cachedDesign = getCachedDesign(params.storeSlug);
-      if (cachedDesign) {
-        setDesignSettings(cachedDesign);
-      }
-
-      const res = await fetch(`${API_BASE}/api/v1/agent-stores/store/${params.storeSlug}`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        setStore(data.data);
-        const newDesignSettings = extractDesignSettings(data.data);
-        setDesignSettings(newDesignSettings);
-        setCachedDesign(params.storeSlug, newDesignSettings);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('lastVisitedStoreSlug', params.storeSlug);
+    const checkSubAgent = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/sub-agent/store/${params.storeSlug}/join-info`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          setSubAgentEnabled(true);
+          setActivationFee(data.data?.settings?.activationFee?.amount || 0);
         }
+      } catch {
+        setSubAgentEnabled(false);
       }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    load();
+    checkSubAgent();
+  }, [params.storeSlug, initialStore]);
+
+  const brandStyle = useMemo(() => storeVars(store, darkMode), [store, darkMode]);
 
   const isOpen = () => {
     if (!store?.isOpen) return false;
@@ -161,20 +125,22 @@ export default function StoreLayoutClient({ children, initialStore }) {
     const day = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const time = now.toTimeString().slice(0, 5);
     const hours = store.businessHours?.[day];
-    return hours?.isOpen && time >= hours.open && time <= hours.close;
+    return Boolean(hours?.isOpen && time >= hours.open && time <= hours.close);
   };
 
   const isActive = (path) => {
-    if (path === '') return pathname === `/shop/${params.storeSlug}` || pathname === `/shop/${params.storeSlug}/`;
-    return pathname.includes(path);
+    const base = `/shop/${params.storeSlug}`;
+    if (path === '') return pathname === base || pathname === `${base}/`;
+    return pathname.startsWith(`${base}${path}`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-500 text-sm mt-3">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="w-full max-w-md space-y-3 px-6">
+          <div className="skeleton h-8 w-40" />
+          <div className="skeleton h-4 w-full" />
+          <div className="skeleton h-4 w-3/4" />
         </div>
       </div>
     );
@@ -182,554 +148,201 @@ export default function StoreLayoutClient({ children, initialStore }) {
 
   if (!store) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-10 h-10 text-gray-400" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Shop Not Found</h1>
-          <p className="text-gray-500">This shop doesn't exist or has been removed.</p>
+      <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
+        <div className="card max-w-sm p-8 text-center">
+          <h1 className="mb-2 text-[20px]">Shop not found</h1>
+          <p className="text-[14px] text-ink-3">
+            This shop does not exist, or its owner has taken it down.
+          </p>
         </div>
       </div>
     );
   }
 
-  const navLinks = [
-    { path: '', label: 'Home' },
-    { path: '/products', label: 'Buy Data' },
-    { path: '/orders/search', label: 'Track Order' },
-    { path: '/about', label: 'About' },
-  ];
-
-  // Get theme colors
-  const theme = getThemeColors(store);
-
-  // Get nav style from design settings
-  const navStyle = designSettings?.navStyle || store?.customization?.navStyle || 'default';
+  const whatsapp = store.contactInfo?.whatsappNumber?.replace(/\D/g, '');
+  const whatsappGroup = store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink;
+  const isOwnerArea = pathname.startsWith(`/shop/${params.storeSlug}/owner`);
+  const isHome = isActive('');
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
+    <div style={brandStyle} className="flex min-h-screen flex-col overflow-x-hidden bg-canvas">
+      <SiteNav
+        store={store}
+        storeSlug={params.storeSlug}
+        navLinks={NAV_LINKS}
+        isActive={isActive}
+        overHero={isHome}
+        darkMode={darkMode}
+        onToggleTheme={() => setDarkMode(!darkMode)}
+        onCheckNumber={() => setShowVerify(true)}
+        subAgentEnabled={subAgentEnabled}
+      />
 
-      {/* Announcement Popup - Uses fresh store data (not cached) for instant updates */}
-      {store?.announcement && store.announcement.enabled && (
-        <AnnouncementPopup
-          announcement={store.announcement}
-          style={designSettings?.announcementPopupStyle || store?.customization?.announcementPopupStyle || 'banner'}
-          theme={theme}
-        />
-      )}
+      <VerifyNumberModal open={showVerify} onClose={() => setShowVerify(false)} />
 
-      {/* Top Info Bar - Uses Store Theme */}
-      <div
-        className="text-xs"
-        style={{ backgroundColor: theme.primary, color: theme.text }}
-      >
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5 opacity-80">
-              <Clock className="w-3 h-3" />
-              Delivery: 10min - 1hr
-            </span>
-            <span className={`hidden sm:flex items-center gap-1.5 ${isOpen() ? 'text-green-400' : 'text-red-400'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isOpen() ? 'bg-green-400' : 'bg-red-400'}`}></span>
-              {isOpen() ? 'Open Now' : 'Closed'}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            {store.contactInfo?.phoneNumber && (
-              <a href={`tel:${store.contactInfo.phoneNumber}`} className="flex items-center gap-1.5 opacity-80 hover:opacity-100 transition">
-                <Phone className="w-3 h-3" />
-                <span className="hidden sm:inline">{store.contactInfo.phoneNumber}</span>
-              </a>
-            )}
-            {store.contactInfo?.whatsappNumber && (
-              <a
-                href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-green-400 hover:text-green-300 transition"
-              >
-                <MessageCircle className="w-3 h-3" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </a>
-            )}
-          </div>
-        </div>
-      </div>
+      <main className="flex-1 pt-16 sm:pt-[72px]">
+        {/* Inside main, so the inline banner variant sits BELOW the fixed nav
+            instead of being painted over by it. Never on /owner/*: an
+            announcement aimed at shoppers lands on the owner's sign-in form. */}
+        {store?.announcement?.enabled && !isOwnerArea && (
+          <AnnouncementPopup
+            announcement={store.announcement}
+            style={
+              designSettings?.announcementPopupStyle ||
+              store?.customization?.announcementPopupStyle ||
+              'banner'
+            }
+          />
+        )}
 
-      {/* Main Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-
-            {/* Logo & Store Name */}
-            <Link href={`/shop/${params.storeSlug}`} className="flex items-center gap-3">
-              {store.storeLogo ? (
-                <Image src={store.storeLogo} alt={store.storeName} width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
-              ) : (
-                <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`
-                  }}
-                >
-                  <span style={{ color: theme.text }} className="font-bold text-lg">{store.storeName?.charAt(0)}</span>
-                </div>
-              )}
-              <span className="font-bold text-gray-900 dark:text-white text-lg hidden sm:block">{store.storeName}</span>
-            </Link>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  href={`/shop/${params.storeSlug}${link.path}`}
-                  className={`relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive(link.path)
-                      ? 'shadow-md'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                  style={isActive(link.path) ? {
-                    backgroundColor: theme.primary,
-                    color: theme.text
-                  } : {}}
-                >
-                  {link.label}
-                  {isActive(link.path) && (
-                    <span
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                      style={{ backgroundColor: theme.primary }}
-                    ></span>
-                  )}
-                </Link>
-              ))}
-
-              {/* Become a Reseller - Show if enabled */}
-              {subAgentEnabled && (
-                <Link
-                  href={`/shop/${params.storeSlug}/join`}
-                  className="ml-2 px-4 py-2 rounded-xl text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-500 hover:to-emerald-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5"
-                >
-                  Become a Reseller
-                </Link>
-              )}
-
-              {/* Dark Mode Toggle - Desktop */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="ml-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-            </nav>
-
-            {/* Dark Mode Toggle - Mobile */}
-            <div className="flex items-center gap-2 md:hidden">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-yellow-400"
-                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                  menuOpen
-                    ? 'shadow-lg'
-                    : 'bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:border-gray-300 hover:shadow-md'
-                }`}
-                style={menuOpen ? { backgroundColor: theme.primary, color: theme.text } : {}}
-                aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-              >
-                <div className="relative w-6 h-6">
-                  {/* Hamburger to X animation */}
-                  <span className={`absolute left-0 w-6 h-0.5 bg-current transform transition-all duration-300 ease-in-out ${
-                    menuOpen ? 'top-[11px] rotate-45' : 'top-1'
-                  }`}></span>
-                  <span className={`absolute left-0 top-[11px] w-6 h-0.5 bg-current transition-all duration-200 ${
-                    menuOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
-                  }`}></span>
-                  <span className={`absolute left-0 w-6 h-0.5 bg-current transform transition-all duration-300 ease-in-out ${
-                    menuOpen ? 'top-[11px] -rotate-45' : 'top-5'
-                  }`}></span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        <div className={`md:hidden overflow-hidden transition-all duration-400 ease-out ${
-          menuOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
-        }`}>
-          <div className="border-t border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg">
-            <div className="px-4 py-4 space-y-2">
-              {navLinks.map((link, index) => (
-                <Link
-                  key={link.path}
-                  href={`/shop/${params.storeSlug}${link.path}`}
-                  className={`block px-4 py-3.5 rounded-xl font-medium transition-all duration-200 ${
-                    isActive(link.path)
-                      ? 'shadow-lg'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 active:scale-[0.98]'
-                  }`}
-                  style={{
-                    transform: menuOpen ? 'translateX(0)' : 'translateX(-20px)',
-                    opacity: menuOpen ? 1 : 0,
-                    transition: `all 0.3s ease-out ${index * 0.05}s`,
-                    ...(isActive(link.path) ? { backgroundColor: theme.primary, color: theme.text } : {})
-                  }}
-                >
-                  {link.label}
-                </Link>
-              ))}
-
-              {/* Become a Reseller - Mobile */}
-              {subAgentEnabled && (
-                <>
-                  <div className="pt-3 mt-3 border-t border-gray-100">
-                    <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Reseller Program</p>
-                  </div>
-                  <Link
-                    href={`/shop/${params.storeSlug}/join`}
-                    className="block px-4 py-3.5 rounded-xl font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-500 hover:to-emerald-500 transition-all duration-200 active:scale-[0.98] shadow-lg"
-                    style={{
-                      transform: menuOpen ? 'translateX(0)' : 'translateX(-20px)',
-                      opacity: menuOpen ? 1 : 0,
-                      transition: 'all 0.3s ease-out 0.2s'
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
-                        <Users className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="block font-semibold">Become a Reseller</span>
-                        <span className="text-xs text-green-200">
-                          {activationFee > 0 ? `GH₵${activationFee} to start` : 'Free to join'}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                  <Link
-                    href={`/shop/${params.storeSlug}/agent-login`}
-                    className="block px-4 py-3.5 rounded-xl font-medium text-gray-600 hover:bg-gray-100 transition-all duration-200 active:scale-[0.98]"
-                    style={{
-                      transform: menuOpen ? 'translateX(0)' : 'translateX(-20px)',
-                      opacity: menuOpen ? 1 : 0,
-                      transition: 'all 0.3s ease-out 0.25s'
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <Briefcase className="w-5 h-5 text-gray-500" />
-                      </div>
-                      <span>Reseller Login</span>
-                    </div>
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Page Content */}
-      <main className="flex-1">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          {children}
-        </div>
+        {/* The home page lays out its own width so SiteHero can run genuinely
+            edge to edge. Every other page gets the standard content column. */}
+        {isHome ? (
+          children
+        ) : (
+          <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">{children}</div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto px-4 py-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-
-            {/* Brand */}
+      <footer className="border-t border-hairline bg-paper">
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                {store.storeLogo ? (
-                  <Image src={store.storeLogo} alt={store.storeName} width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
-                ) : (
-                  <div
-                    className="h-10 w-10 rounded-xl flex items-center justify-center"
-                    style={{
-                      background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`
-                    }}
-                  >
-                    <span style={{ color: theme.text }} className="font-bold">{store.storeName?.charAt(0)}</span>
-                  </div>
-                )}
-                <span className="font-bold text-lg text-gray-900 dark:text-white">{store.storeName}</span>
+              <div className="mb-3 flex items-center gap-2.5">
+                <FooterMark store={store} />
+                <span className="text-[16px] font-semibold tracking-[-0.02em] text-ink">
+                  {store.storeName}
+                </span>
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed max-w-sm">
-                {store.storeDescription || 'Your trusted source for affordable data bundles. Fast delivery, best prices, all networks supported.'}
+              <p className="max-w-sm text-[13px] leading-relaxed text-ink-3">
+                {store.storeDescription ||
+                  'Data bundles for MTN, Telecel and AirtelTigo, paid by mobile money.'}
               </p>
-
-              {/* WhatsApp Group Link */}
-              {(store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink) && (
+              {whatsappGroup && (
                 <a
-                  href={store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink}
+                  href={whatsappGroup}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-all duration-200 hover:shadow-lg"
+                  className="btn btn-ghost mt-4 h-9 text-[13px]"
                 >
-                  <Users className="w-4 h-4" />
-                  Join Our WhatsApp Group
-                  <ExternalLink className="w-3 h-3" />
+                  {/* WhatsApp's own green, not the shop's brand colour — this is
+                      someone else's mark and recolouring it makes it stop
+                      reading as WhatsApp at a glance. */}
+                  <span style={{ color: '#25D366' }} className="flex">
+                    <WhatsAppIcon className="h-4 w-4" />
+                  </span>
+                  Join the WhatsApp group
+                  <ExternalLink className="h-3 w-3 text-ink-4" />
                 </a>
               )}
             </div>
 
-            {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Links</h4>
+              <p className="eyebrow mb-3">Shop</p>
               <div className="space-y-2">
-                {navLinks.map((link) => (
+                {NAV_LINKS.map((link) => (
                   <Link
                     key={link.path}
                     href={`/shop/${params.storeSlug}${link.path}`}
-                    className="block text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+                    className="group flex items-center gap-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
                   >
+                    <link.Icon className="h-3.5 w-3.5 flex-none text-ink-4 transition-colors group-hover:text-ink-3" />
                     {link.label}
                   </Link>
                 ))}
               </div>
             </div>
 
-            {/* Reseller / Contact */}
             <div>
-              {subAgentEnabled ? (
-                <>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Sell With Us</h4>
-                  <div className="space-y-3">
+              <p className="eyebrow mb-3">{subAgentEnabled ? 'Sell with us' : 'Contact'}</p>
+              <div className="space-y-2">
+                {subAgentEnabled && (
+                  <>
                     <Link
                       href={`/shop/${params.storeSlug}/join`}
-                      className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 transition"
+                      className="group flex items-center gap-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
                     >
-                      <Users className="w-4 h-4" />
-                      Become a Reseller
+                      <Store className="h-3.5 w-3.5 flex-none text-ink-4 transition-colors group-hover:text-ink-3" />
+                      Become a reseller
+                      {activationFee > 0 && (
+                        <span className="num ml-auto text-ink-4">₵{activationFee}</span>
+                      )}
                     </Link>
                     <Link
                       href={`/shop/${params.storeSlug}/agent-login`}
-                      className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition"
+                      className="group flex items-center gap-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
                     >
-                      <Briefcase className="w-4 h-4" />
-                      Reseller Login
+                      <LogIn className="h-3.5 w-3.5 flex-none text-ink-4 transition-colors group-hover:text-ink-3" />
+                      Reseller login
                     </Link>
-                    <p className="text-xs text-gray-400">
-                      {activationFee > 0 ? `Start with GH₵${activationFee}` : 'Free to join'}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h4 className="font-semibold text-gray-900 mb-4">Contact Us</h4>
-                  <div className="space-y-3">
-                    {store.contactInfo?.phoneNumber && (
-                      <a href={`tel:${store.contactInfo.phoneNumber}`} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition">
-                        <Phone className="w-4 h-4" />
-                        {store.contactInfo.phoneNumber}
-                      </a>
-                    )}
-                    {store.contactInfo?.whatsappNumber && (
-                      <a
-                        href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-green-600 hover:text-green-700 transition"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        WhatsApp Us
-                      </a>
-                    )}
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+                {store.contactInfo?.phoneNumber && (
+                  <a
+                    href={`tel:${store.contactInfo.phoneNumber}`}
+                    className="group flex items-center gap-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+                  >
+                    <Phone className="h-3.5 w-3.5 flex-none text-ink-4 transition-colors group-hover:text-ink-3" />
+                    <span className="num">{store.contactInfo.phoneNumber}</span>
+                  </a>
+                )}
+                {whatsapp && (
+                  <a
+                    href={`https://wa.me/${whatsapp}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-[13px] text-ink-3 transition-colors hover:text-ink"
+                  >
+                    <span style={{ color: '#25D366' }} className="flex flex-none">
+                      <WhatsAppIcon className="h-3.5 w-3.5" />
+                    </span>
+                    WhatsApp
+                  </a>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">
-              &copy; {new Date().getFullYear()} {store.storeName}. All rights reserved.
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-hairline pt-6 sm:flex-row">
+            <p className="text-[12px] text-ink-4">
+              © {new Date().getFullYear()} {store.storeName}
             </p>
+            <Link
+              href={`/shop/${params.storeSlug}/owner/design`}
+              className="flex items-center gap-1.5 text-[12px] text-ink-4 transition-colors hover:text-ink-2"
+            >
+              <Settings className="h-3 w-3" />
+              Store owner
+            </Link>
           </div>
         </div>
       </footer>
 
-      {/* Floating WhatsApp Button */}
-      {store.contactInfo?.whatsappNumber && (
+      {whatsapp && (
         <a
-          href={`https://wa.me/${store.contactInfo.whatsappNumber.replace(/\D/g, '')}?text=Hi, I'd like to buy data bundles`}
+          href={`https://wa.me/${whatsapp}?text=${encodeURIComponent('Hi, I would like to buy data')}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed bottom-6 right-6 w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg hover:bg-green-600 hover:scale-110 hover:shadow-xl transition-all duration-300 z-40 animate-bounce-slow group"
+          className="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
+          style={{ background: '#25D366', boxShadow: 'var(--lift-2)' }}
           aria-label="Chat on WhatsApp"
         >
-          <MessageCircle className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping"></span>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full"></span>
+          <WhatsAppIcon className="h-6 w-6" />
         </a>
       )}
 
-      {/* Agent Promo Claim Button */}
       <PromoClaimButton storeSlug={params.storeSlug} />
 
-      {/* Rezolv Live Chat Widget */}
       {store?.rezolv?.enabled && store?.rezolv?.apiKey && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.REZOLV_CONFIG = {
-                apiKey: "${store.rezolv.apiKey}"
-              };
-            `
-          }}
-        />
+        <>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.REZOLV_CONFIG = { apiKey: ${JSON.stringify(store.rezolv.apiKey)} };`,
+            }}
+          />
+          <script src="https://api.rezolv.dev/widget.js" async />
+        </>
       )}
-      {store?.rezolv?.enabled && store?.rezolv?.apiKey && (
-        <script src="https://api.rezolv.dev/widget.js" async />
-      )}
-
-      {/* Animation Styles */}
-      <style jsx global>{`
-        /* Custom transition duration */
-        .duration-400 {
-          transition-duration: 400ms;
-        }
-
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes bounce-slow {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-5px);
-          }
-        }
-
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out forwards;
-        }
-
-        .animate-fadeInUp {
-          opacity: 0;
-          animation: fadeInUp 0.4s ease-out forwards;
-        }
-
-        .animate-bounce-slow {
-          animation: bounce-slow 2s ease-in-out infinite;
-        }
-
-        /* Announcement Popup Animations */
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes shrink {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out forwards;
-        }
-
-        .animate-scaleIn {
-          animation: scaleIn 0.3s ease-out forwards;
-        }
-
-        .animate-slideUp {
-          animation: slideUp 0.4s ease-out forwards;
-        }
-
-        .animate-slideInRight {
-          animation: slideInRight 0.3s ease-out forwards;
-        }
-
-        .animate-shrink {
-          animation: shrink linear forwards;
-        }
-
-        /* Smooth page transitions */
-        .page-transition {
-          animation: fadeInUp 0.3s ease-out;
-        }
-
-        /* Smooth scrolling */
-        html {
-          scroll-behavior: smooth;
-        }
-
-        /* Better tap feedback on mobile */
-        @media (hover: none) {
-          button:active, a:active {
-            transform: scale(0.97);
-            transition: transform 0.1s;
-          }
-        }
-      `}</style>
     </div>
   );
 }

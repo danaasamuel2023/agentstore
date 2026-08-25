@@ -1,292 +1,177 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+/**
+ * Store home page.
+ *
+ * Opens with SiteHero — a full-bleed brand section that the fixed nav sits
+ * transparently on top of — then goes straight to bundles. The hero carries a
+ * price card so the shop is priced before a visitor scrolls at all.
+ *
+ * Removed along the way, and not coming back:
+ *  - The four-badge strip ("10-60 Min Delivery / 100% Secure / 24/7 Available").
+ *    Unfalsifiable claims rendered as decoration.
+ *  - "Why Buy From Us?" — three pastel circles restating those same badges.
+ *  - The gradient "Ready to Get Started?" footer CTA. The header already has a
+ *    buy button; a second one wrapped in a gradient is the most template-looking
+ *    way a storefront can end.
+ */
+
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Clock, CheckCircle, ChevronRight, Star, Truck } from 'lucide-react';
-import { extractDesignSettings } from '@/lib/designCache';
-import HeroSection from './components/HeroSection';
+import { ChevronRight } from 'lucide-react';
+import WhatsAppIcon from './components/WhatsAppIcon';
+import { networkOf } from '@/lib/storeTheme';
 import PackageDisplay from './components/PackageDisplay';
+import SiteHero from './components/SiteHero';
+import NetworkLogo from './components/NetworkLogo';
 import { DeliveryEtaBanner } from './components/DeliveryEta';
 
-// Network Logos
-const MTNLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-    <rect width="80" height="80" rx="16" fill="#FFCC00"/>
-    <ellipse cx="40" cy="40" rx="30" ry="20" stroke="#000" strokeWidth="3" fill="none"/>
-    <text x="40" y="46" textAnchor="middle" fontFamily="Arial Black" fontSize="14" fontWeight="900" fill="#000">MTN</text>
-  </svg>
-);
+const NETWORK_ORDER = ['YELLO', 'TELECEL', 'AT_PREMIUM'];
 
-const TelecelLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#DC2626"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="18" fill="#fff">T</text>
-  </svg>
-);
+const cedis = (n) => `₵${Number(n || 0).toFixed(2)}`;
+const priceOf = (p) => (p.isOnSale && p.salePrice ? p.salePrice : p.sellingPrice);
 
-const ATLogo = ({ size = 40 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48">
-    <circle cx="24" cy="24" r="22" fill="#7C3AED"/>
-    <text x="24" y="30" textAnchor="middle" fontFamily="system-ui" fontWeight="bold" fontSize="14" fill="#fff">AT</text>
-  </svg>
-);
 
-// Theme color presets
-const themePresets = {
-  blue: { primary: '#2563EB', secondary: '#1E40AF', accent: '#3B82F6', text: '#FFFFFF' },
-  green: { primary: '#059669', secondary: '#047857', accent: '#10B981', text: '#FFFFFF' },
-  purple: { primary: '#7C3AED', secondary: '#6D28D9', accent: '#8B5CF6', text: '#FFFFFF' },
-  red: { primary: '#DC2626', secondary: '#B91C1C', accent: '#EF4444', text: '#FFFFFF' },
-  orange: { primary: '#EA580C', secondary: '#C2410C', accent: '#F97316', text: '#FFFFFF' },
-  pink: { primary: '#DB2777', secondary: '#BE185D', accent: '#EC4899', text: '#FFFFFF' },
-  teal: { primary: '#0D9488', secondary: '#0F766E', accent: '#14B8A6', text: '#FFFFFF' },
-  indigo: { primary: '#4F46E5', secondary: '#4338CA', accent: '#6366F1', text: '#FFFFFF' },
-  yellow: { primary: '#FACC15', secondary: '#EAB308', accent: '#FDE047', text: '#000000' },
-  dark: { primary: '#1F2937', secondary: '#111827', accent: '#374151', text: '#FFFFFF' },
-};
-
-const getThemeColors = (store) => {
-  const themeName = store?.theme?.name || store?.settings?.theme || 'dark';
-  const customPrimary = store?.theme?.primaryColor || store?.settings?.primaryColor;
-  const customSecondary = store?.theme?.secondaryColor || store?.settings?.secondaryColor;
-  const customAccent = store?.theme?.accentColor || store?.settings?.accentColor;
-
-  if (customPrimary) {
-    return {
-      primary: customPrimary,
-      secondary: customSecondary || customPrimary,
-      accent: customAccent || '#FACC15',
-      text: isLightColor(customPrimary) ? '#000000' : '#FFFFFF'
-    };
-  }
-
-  return themePresets[themeName] || themePresets.dark;
-};
-
-const isLightColor = (color) => {
-  if (!color) return false;
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 155;
-};
+const COMMITMENTS = [
+  ['Mobile money only', 'MTN, Telecel and AirtelTigo money are all accepted. No card, no account to create.'],
+  ['Any number on the network', 'Buy for yourself, for family, for a customer. You enter the number at checkout.'],
+  ['If it fails, you get it back', 'A bundle that does not deliver is refunded. Keep the tracking ID and we can find it.'],
+];
 
 export default function StorePageClient({ storeSlug, initialStore, initialProducts }) {
-  const [store] = useState(initialStore);
-  const [products] = useState(initialProducts);
+  const store = initialStore;
+  const products = useMemo(() => initialProducts || [], [initialProducts]);
 
-  const designSettings = initialStore ? extractDesignSettings(initialStore) : null;
-  const theme = getThemeColors(store);
+  /* One pass over the catalogue rather than six filter() calls. Gives, per
+     network, the bundle count and the cheapest price — "from ₵4.20" is what a
+     shopper actually wants next to a network name. */
+  const byNetwork = useMemo(() => {
+    const acc = {};
+    for (const product of products) {
+      const key = product.network;
+      const price = priceOf(product);
+      if (!acc[key]) acc[key] = { count: 0, from: price, items: [] };
+      acc[key].count += 1;
+      acc[key].items.push(product);
+      if (price < acc[key].from) acc[key].from = price;
+    }
+    return acc;
+  }, [products]);
 
-  // Count products by network
-  const mtnCount = products.filter(p => p.network === 'YELLO').length;
-  const telecelCount = products.filter(p => p.network === 'TELECEL').length;
-  const atCount = products.filter(p => p.network === 'AT_PREMIUM').length;
+  /* Cheapest of each network first, then whatever is on sale. Six tiles fills
+     two rows on a phone and two on a desktop without a ragged last row. */
+  const popular = useMemo(() => {
+    const picked = [];
+    for (const key of NETWORK_ORDER) {
+      const cheapest = byNetwork[key]?.items?.slice().sort((a, b) => priceOf(a) - priceOf(b))[0];
+      if (cheapest) picked.push(cheapest);
+    }
+    const ids = new Set(picked.map((p) => p._id));
+    const onSale = products.filter((p) => p.isOnSale && !ids.has(p._id)).slice(0, 3);
+    return [...picked, ...onSale].slice(0, 6);
+  }, [byNetwork, products]);
 
-  // Get popular products (cheapest from each network + sale items)
-  const getPopularProducts = () => {
-    const popular = [];
-
-    const mtn = products.filter(p => p.network === 'YELLO').sort((a, b) => a.sellingPrice - b.sellingPrice)[0];
-    if (mtn) popular.push(mtn);
-
-    const telecel = products.filter(p => p.network === 'TELECEL').sort((a, b) => a.sellingPrice - b.sellingPrice)[0];
-    if (telecel) popular.push(telecel);
-
-    const at = products.filter(p => p.network === 'AT_PREMIUM').sort((a, b) => a.sellingPrice - b.sellingPrice)[0];
-    if (at) popular.push(at);
-
-    const saleItems = products.filter(p => p.isOnSale && !popular.includes(p)).slice(0, 3);
-    popular.push(...saleItems);
-
-    return popular.slice(0, 6);
-  };
 
   if (!store) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-gray-500">Store not found.</p>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <p className="text-ink-3">Store not found.</p>
       </div>
     );
   }
 
-  const popularProducts = getPopularProducts();
-  const heroStyle = designSettings?.heroStyle || store?.customization?.heroStyle || 'default';
-  const packageDisplayStyle = designSettings?.packageDisplayStyle || store?.customization?.packageDisplayStyle || 'default';
+  const availableNetworks = NETWORK_ORDER.filter((key) => byNetwork[key]?.count);
+  const whatsapp = store.contactInfo?.whatsappNumber?.replace(/\D/g, '');
 
   return (
-    <div className="space-y-10">
-
-      {/* Hero Section */}
-      <HeroSection
-        style={heroStyle}
+    <>
+      <SiteHero
+        store={store}
         storeSlug={storeSlug}
-        theme={theme}
+        style={store?.customization?.heroStyle || 'default'}
       />
 
-      {/* Delivery ETA — same bucketed messaging as mtnup2u + /orders */}
-      <DeliveryEtaBanner />
+      <div className="mx-auto max-w-5xl space-y-11 px-4 py-10 sm:py-12">
+        {/* First thing under the hero. Someone arriving already wondering
+            "is it slow today?" gets the answer before they look at a price,
+            and if it is slow they find that out before paying rather than
+            after. It used to sit three sections down, below the bundles it
+            should be qualifying. */}
+        <DeliveryEtaBanner />
 
-      {/* Features */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { icon: Zap, label: '10-60 Min Delivery', color: 'text-yellow-500' },
-          { icon: Shield, label: '100% Secure', color: 'text-green-500' },
-          { icon: Clock, label: '24/7 Available', color: 'text-blue-500' },
-          { icon: Truck, label: 'All Networks', color: 'text-purple-500' },
-        ].map((feature, i) => (
-          <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-800">
-            <feature.icon className={`w-6 h-6 ${feature.color} mx-auto mb-2`} />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.label}</p>
+        <PackageDisplay products={popular} storeSlug={storeSlug} title="Popular bundles" />
+
+        {/* Browse by network — just the marks. People recognise these faster
+            than they read the words next to them, and the counts and prices
+            they used to carry are already on every tile above. */}
+        {availableNetworks.length > 0 && (
+          <section className="space-y-3.5">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-[18px]">Browse by network</h2>
+              <Link
+                href={`/shop/${storeSlug}/products`}
+                className="flex items-center gap-0.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+              >
+                All prices
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {availableNetworks.map((key) => (
+                <Link
+                  key={key}
+                  href={`/shop/${storeSlug}/products?network=${key}`}
+                  aria-label={networkOf(key).name}
+                  title={networkOf(key).name}
+                  className="card flex items-center justify-center p-4 transition-colors hover:border-brand-line hover:bg-sunken"
+                >
+                  <NetworkLogo network={key} size={52} />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+      {/* The honest version of the badge strip that used to sit here. Every line
+          is something a customer could hold the shop to. */}
+      <section className="card divide-y divide-hairline">
+        {COMMITMENTS.map(([title, body]) => (
+          <div key={title} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:gap-6">
+            <h3 className="text-[13.5px] sm:w-56 sm:flex-none">{title}</h3>
+            <p className="text-[13px] leading-relaxed text-ink-3">{body}</p>
           </div>
         ))}
       </section>
 
-      {/* Networks Section */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Choose Your Network</h2>
-          <Link
-            href={`/shop/${storeSlug}/products`}
-            className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition"
-          >
-            View All
-            <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* MTN */}
-          {mtnCount > 0 && (
-            <Link
-              href={`/shop/${storeSlug}/products?network=YELLO`}
-              className="group bg-yellow-400 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="group-hover:scale-110 transition-transform duration-300">
-                  <MTNLogo size={48} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-black">MTN</h3>
-                  <p className="text-sm text-black/60">{mtnCount} bundles</p>
-                </div>
-              </div>
-              <div className="flex items-center text-black font-medium text-sm">
-                View Bundles
-                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform duration-300" />
-              </div>
-            </Link>
-          )}
-
-          {/* Telecel */}
-          {telecelCount > 0 && (
-            <Link
-              href={`/shop/${storeSlug}/products?network=TELECEL`}
-              className="group bg-red-600 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="group-hover:scale-110 transition-transform duration-300">
-                  <TelecelLogo size={48} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Telecel</h3>
-                  <p className="text-sm text-white/60">{telecelCount} bundles</p>
-                </div>
-              </div>
-              <div className="flex items-center text-white font-medium text-sm">
-                View Bundles
-                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform duration-300" />
-              </div>
-            </Link>
-          )}
-
-          {/* AirtelTigo */}
-          {atCount > 0 && (
-            <Link
-              href={`/shop/${storeSlug}/products?network=AT_PREMIUM`}
-              className="group bg-purple-600 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="group-hover:scale-110 transition-transform duration-300">
-                  <ATLogo size={48} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">AirtelTigo</h3>
-                  <p className="text-sm text-white/60">{atCount} bundles</p>
-                </div>
-              </div>
-              <div className="flex items-center text-white font-medium text-sm">
-                View Bundles
-                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-2 transition-transform duration-300" />
-              </div>
-            </Link>
-          )}
-        </div>
-      </section>
-
-      {/* Popular Products */}
-      <PackageDisplay
-        style={packageDisplayStyle}
-        products={popularProducts}
-        storeSlug={storeSlug}
-        title="Popular Bundles"
-      />
-
-      {/* Why Choose Us */}
-      <section className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-8">Why Buy From Us?</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-14 h-14 bg-green-100 dark:bg-green-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-7 h-7 text-green-600 dark:text-green-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Guaranteed Delivery</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Your data is always delivered. If there's any issue, we'll fix it or refund you.
+      {(whatsapp || store.contactInfo?.phoneNumber) && (
+        <section className="flex flex-col items-start gap-3 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-[15px]">Stuck on an order?</h2>
+            <p className="mt-1 text-[13px] text-ink-3">
+              Message {store.storeName} with your tracking ID and we will check it.
             </p>
           </div>
-
-          <div className="text-center">
-            <div className="w-14 h-14 bg-yellow-100 dark:bg-yellow-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-7 h-7 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Super Fast</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Most orders are delivered within 10-30 minutes. No long waits.
-            </p>
-          </div>
-
-          <div className="text-center">
-            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Safe & Secure</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Secure payment processing. Your data and money are always protected.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section
-        className="rounded-3xl p-8 text-center hover:shadow-2xl transition-shadow duration-500"
-        style={{
-          background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 100%)`
-        }}
-      >
-        <h2 className="text-2xl font-bold mb-3" style={{ color: theme.text }}>Ready to Get Started?</h2>
-        <p className="mb-6 opacity-70" style={{ color: theme.text }}>Choose your network and buy data in seconds.</p>
-        <Link
-          href={`/shop/${storeSlug}/products`}
-          className="inline-flex items-center gap-2 font-semibold px-8 py-4 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-        >
-          Buy Data Now
-          <ArrowRight className="w-5 h-5" />
-        </Link>
-      </section>
-    </div>
+          {whatsapp ? (
+            <a
+              href={`https://wa.me/${whatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-ghost"
+            >
+              <span style={{ color: '#25D366' }} className="flex">
+                <WhatsAppIcon className="h-4 w-4" />
+              </span>
+              WhatsApp us
+            </a>
+          ) : (
+            <a href={`tel:${store.contactInfo.phoneNumber}`} className="btn btn-ghost">
+              Call {store.contactInfo.phoneNumber}
+            </a>
+          )}
+          </section>
+        )}
+      </div>
+    </>
   );
 }
