@@ -42,7 +42,6 @@ export default function CheckersPage() {
 
   const [picked, setPicked] = useState(null);
   const [qty, setQty] = useState(1);
-  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
 
@@ -112,7 +111,6 @@ export default function CheckersPage() {
     setError('');
 
     if (!picked) return setError('Choose a checker first.');
-    if (!name.trim()) return setError('Enter your name.');
     if (!/^(0\d{9}|233\d{9})$/.test(phone.replace(/\s/g, ''))) {
       return setError('Enter a valid Ghana phone number, e.g. 024 123 4567.');
     }
@@ -126,7 +124,6 @@ export default function CheckersPage() {
         body: JSON.stringify({
           checkerType: picked,
           quantity: qty,
-          customerName: name.trim(),
           customerPhone: phone.replace(/\s/g, ''),
           customerEmail: email.trim().toLowerCase(),
           callbackUrl: `${window.location.origin}/shop/${slug}/checkers`,
@@ -167,7 +164,8 @@ export default function CheckersPage() {
 
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Your checker details</h1>
         <p className="mt-1 text-[14px] text-ink-3">
-          We have also texted these to {order.customerPhone}. Write them down — a checker cannot be replaced once issued.
+          A receipt with these details has been texted to {order.customerPhone} and emailed to you.
+          Write them down too — a checker cannot be replaced once issued.
         </p>
 
         <div className="mt-6 space-y-3">
@@ -290,7 +288,6 @@ export default function CheckersPage() {
           </div>
         </div>
 
-        <Input label="Your name" value={name} onChange={setName} placeholder="Ama Mensah" autoComplete="name" />
         <Input label="Phone number" value={phone} onChange={setPhone} placeholder="024 123 4567"
                inputMode="tel" autoComplete="tel" hint="We text the serial and PIN here." />
         <Input label="Email" value={email} onChange={setEmail} placeholder="you@example.com"
