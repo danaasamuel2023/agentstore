@@ -18,9 +18,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
-  GraduationCap, Loader2, Copy, Check, AlertCircle, ShieldCheck,
+  Loader2, Copy, Check, AlertCircle, ShieldCheck,
   ArrowLeft, Clock,
 } from 'lucide-react';
+import { CheckerCardArt, ResultSlipArt } from '../components/CheckerArt';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1/agent-stores';
 
@@ -162,7 +163,12 @@ export default function CheckersPage() {
           Paid — {order.quantity} {order.checkerType} checker{order.quantity > 1 ? 's' : ''}
         </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Your checker details</h1>
+        <div className="mb-2 flex items-start gap-5">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Your checker details</h1>
+          </div>
+          <ResultSlipArt className="hidden h-20 w-auto shrink-0 text-ink sm:block" />
+        </div>
         <p className="mt-1 text-[14px] text-ink-3">
           A receipt with these details has been texted to {order.customerPhone} and emailed to you.
           Write them down too — a checker cannot be replaced once issued.
@@ -211,7 +217,7 @@ export default function CheckersPage() {
   if (!enabled || products.length === 0) {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-16 text-center">
-        <GraduationCap className="mx-auto h-8 w-8 text-ink-4" />
+        <ResultSlipArt className="mx-auto h-32 w-auto text-ink-4" />
         <h1 className="mt-4 text-xl font-semibold text-ink">No result checkers here yet</h1>
         <p className="mt-2 text-[14px] text-ink-3">This shop sells data bundles. Check back another time.</p>
         <button onClick={() => router.push(`/shop/${slug}/products`)} className="btn-brand mt-6">
@@ -223,10 +229,18 @@ export default function CheckersPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Result checkers</h1>
-      <p className="mt-1 text-[14px] text-ink-3">
-        Check your WAEC or BECE results. You get the serial number and PIN on screen and by SMS, straight away.
-      </p>
+      {/* The drawing says what you get before a word is read: a card, a serial,
+          a scratched panel with the PIN under it. */}
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Result checkers</h1>
+          <p className="mt-1 text-[14px] text-ink-3">
+            Check your WAEC or BECE results. The serial number and PIN come up on screen straight
+            away, and a receipt goes to your phone and your email.
+          </p>
+        </div>
+        <CheckerCardArt className="hidden h-28 w-auto shrink-0 text-ink sm:block" />
+      </div>
 
       {busy && searchParams.get('reference') && (
         <div className="mt-6 flex items-center gap-2 rounded-xl border border-hairline p-4 text-[14px] text-ink-3">
