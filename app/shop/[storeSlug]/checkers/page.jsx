@@ -31,6 +31,31 @@ const STOCK_LABEL = {
   out_of_stock: 'Sold out',
 };
 
+/* The examination body's own mark, shown to identify the PRODUCT — the same
+   nominative use as the MTN and Telecel marks on the bundle cards. It stays on
+   the product and the order, and never appears in the shop's nav, footer or
+   receipt sender: the shop resells these cards, it is not the council and must
+   not look like it. BECE has no supplied mark, so it falls back to the drawn
+   card. */
+const MARKS = { WAEC: '/waec-mark.png' };
+
+function CheckerMark({ type, size = 40, className = '' }) {
+  const src = MARKS[type];
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={`${type} logo`}
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      style={{ width: size, height: size, objectFit: 'contain' }}
+    />
+  );
+}
+
 export default function CheckersPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -167,7 +192,7 @@ export default function CheckersPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Your checker details</h1>
           </div>
-          <ResultSlipArt className="hidden h-20 w-auto shrink-0 text-ink sm:block" />
+          <CheckerMark type={order.checkerType} size={48} className="hidden shrink-0 sm:block" />
         </div>
         <p className="mt-1 text-[14px] text-ink-3">
           A receipt with these details has been texted to {order.customerPhone} and emailed to you.
@@ -271,11 +296,16 @@ export default function CheckersPage() {
                      : on ? 'border-[var(--brand)]' : 'border-hairline hover:border-ink-4'
               }`}
             >
-              <div className="flex items-start justify-between">
-                <span className="font-semibold text-ink">{p.checkerType}</span>
-                <span className="num font-semibold text-ink">GH₵{p.price.toFixed(2)}</span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <CheckerMark type={p.checkerType} size={34} className="shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-ink">{p.checkerType}</div>
+                    <div className="text-[13px] text-ink-3">Result checker card</div>
+                  </div>
+                </div>
+                <span className="num shrink-0 font-semibold text-ink">GH₵{p.price.toFixed(2)}</span>
               </div>
-              <div className="mt-1 text-[13px] text-ink-3">Result checker card</div>
               {STOCK_LABEL[p.stockLevel] && (
                 <div className={`mt-2 text-[12px] ${dead ? 'text-ink-4' : 'text-warn'}`}>
                   {STOCK_LABEL[p.stockLevel]}
