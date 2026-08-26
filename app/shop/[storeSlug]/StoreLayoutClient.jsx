@@ -23,7 +23,7 @@ import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/d
 import { storeVars } from '@/lib/storeTheme';
 import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
-import SiteNav, { NAV_LINKS } from './components/SiteNav';
+import SiteNav, { navLinksFor } from './components/SiteNav';
 import VerifyNumberModal from './components/VerifyNumberModal';
 
 const API_BASE = 'https://api.datamartgh.shop';
@@ -169,7 +169,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
       <SiteNav
         store={store}
         storeSlug={params.storeSlug}
-        navLinks={NAV_LINKS}
+        navLinks={navLinksFor(store)}
         isActive={isActive}
         overHero={isHome}
         darkMode={darkMode}
@@ -240,7 +240,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
             <div>
               <p className="eyebrow mb-3">Shop</p>
               <div className="space-y-2">
-                {NAV_LINKS.map((link) => (
+                {navLinksFor(store).map((link) => (
                   <Link
                     key={link.path}
                     href={`/shop/${params.storeSlug}${link.path}`}

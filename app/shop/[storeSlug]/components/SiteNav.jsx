@@ -30,7 +30,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Menu, X, Moon, Sun, ArrowRight, Search, Phone,
-  House, ShoppingBag, Package, Info, Users,
+  House, ShoppingBag, Package, Info, Users, GraduationCap,
 } from 'lucide-react';
 import WhatsAppIcon from './WhatsAppIcon';
 
@@ -45,9 +45,20 @@ import WhatsAppIcon from './WhatsAppIcon';
 export const NAV_LINKS = [
   { path: '', label: 'Home', Icon: House },
   { path: '/products', label: 'Buy data', Icon: ShoppingBag },
+  // Only shown when the shop actually sells checkers — see navLinksFor(). A
+  // shop that has not switched them on must not advertise a page that tells
+  // visitors it sells nothing.
+  { path: '/checkers', label: 'Checkers', Icon: GraduationCap, needs: 'checkers' },
   { path: '/orders/search', label: 'Track order', Icon: Package },
   { path: '/about', label: 'About', Icon: Info },
 ];
+
+/** The links this particular shop should show. */
+export function navLinksFor(store) {
+  const hasCheckers = !!store?.resultCheckers?.enabled
+    && (store.resultCheckers.products || []).some((p) => p.isActive);
+  return NAV_LINKS.filter((l) => l.needs !== 'checkers' || hasCheckers);
+}
 
 /** Always renders on the brand colour — the bar and the mobile panel are both
  *  that colour now, so there is no second variant to keep in step. */
