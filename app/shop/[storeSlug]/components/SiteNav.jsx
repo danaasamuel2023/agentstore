@@ -53,11 +53,19 @@ export const NAV_LINKS = [
   { path: '/about', label: 'About', Icon: Info },
 ];
 
+/** Does this shop actually sell checkers right now?
+ *
+ *  Exported because the nav and the hero both gate on it. Two copies of this
+ *  condition would eventually disagree, and the failure would be a hero button
+ *  leading to a page that says the shop sells nothing. */
+export function sellsCheckers(store) {
+  return !!store?.resultCheckers?.enabled
+    && (store.resultCheckers.products || []).some((p) => p.isActive);
+}
+
 /** The links this particular shop should show. */
 export function navLinksFor(store) {
-  const hasCheckers = !!store?.resultCheckers?.enabled
-    && (store.resultCheckers.products || []).some((p) => p.isActive);
-  return NAV_LINKS.filter((l) => l.needs !== 'checkers' || hasCheckers);
+  return NAV_LINKS.filter((l) => l.needs !== 'checkers' || sellsCheckers(store));
 }
 
 /** Always renders on the brand colour — the bar and the mobile panel are both

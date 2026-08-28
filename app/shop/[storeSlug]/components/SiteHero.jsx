@@ -26,8 +26,9 @@
  */
 
 import Link from 'next/link';
+import { sellsCheckers } from './SiteNav';
 import { ConnectedArt } from './StoryArt';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, GraduationCap } from 'lucide-react';
 
 
 /**
@@ -117,6 +118,23 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
                 <ArrowRight className="h-4 w-4" />
               </Link>
 
+              {/* Only for shops that actually sell them. Outlined rather than
+                  solid so the hero keeps ONE primary action — two filled
+                  buttons side by side make a visitor choose before they have
+                  read anything. */}
+              {sellsCheckers(store) && (
+                <Link
+                  href={`/shop/${storeSlug}/checkers`}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--brand-ink) 40%, transparent)',
+                    color: 'var(--brand-ink)',
+                  }}
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  Result checkers
+                </Link>
+              )}
             </div>
           </div>
 
