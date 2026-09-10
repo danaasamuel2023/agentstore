@@ -43,7 +43,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Zap, Clock } from 'lucide-react';
+import { Zap, Clock, Rocket } from 'lucide-react';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 const POLL_MS = 30_000;
@@ -131,23 +131,62 @@ export function useDeliveryEta() {
      been switched off still reports its last frontier, and quoting a 17-minute
      turnaround from a lane nothing is being sent to is a promise we cannot
      keep. */
-  const fastLive = !!(data?.unibundleActive && data?.unibundleFrontier);
-  const fast = fastLive
-    ? { ...data.unibundleFrontier, wait: waitText(data.unibundleFrontier.placedAt, data.unibundleFrontier.deliveredAt) }
-    : null;
-  const standard = data?.lastDelivered
-    ? {
-        ...data.lastDelivered,
-        wait: waitText(data.lastDelivered.placedAt, data.lastDelivered.deliveredAt),
-        // 'submitted' means it reached the network, not that it landed. Saying
-        // "delivered" for that is the false-completion bug in copy form.
-        sentOnly: data.lastDelivered.frontierSource === 'submitted',
-      }
+  /* Express lane — the backend already picks the faster active provider and
+     strips any brand/id-prefix, so we just render the neutral frontier it hands
+     us. Shown as its own line (like the main site), only while it is active. */
+  const expressLive = !!(data?.expressActive && data?.expressFrontier);
+  const express = expressLive
+    ? { ...data.expressFrontier, wait: waitText(data.expressFrontier.placedAt, data.expressFrontier.deliveredAt) }
     : null;
 
+  /* MEASURE which lane is faster; never assume.
+   *
+   * This used to hard-code UniBundle as the "fast lane" and the eTopup frontier
+   * as the "standard queue". On 2026-09-10 that put a 382-minute lane under
+   * "Fast lane" and a 5-minute lane under "Standard queue" — the labels exactly
+   * inverted, on the page people read before deciding to buy. Which vendor is
+   * quickest changes with the cascade order and with the day; the main site's
+   * banner has sorted by real turnaround since 2026-09-02, and this is the same
+   * logic.
+   *
+   * The pair is also only labelled when there are TWO lanes to compare. Calling
+   * a single active lane the "fast lane" claims a choice that does not exist. */
+  const minutesBetween = (a, b) =>
+    (a && b) ? Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000)) : null;
+
+  const laneCandidates = [
+    (data?.unibundleActive && data?.unibundleFrontier)
+      ? { ...data.unibundleFrontier, sentOnly: false }
+      : null,
+    data?.lastDelivered
+      ? {
+          ...data.lastDelivered,
+          // 'submitted' means it reached the network, not that it landed. Saying
+          // "delivered" for that is the false-completion bug in copy form.
+          sentOnly: data.lastDelivered.frontierSource === 'submitted',
+        }
+      : null,
+  ]
+    .filter((l) => l && l.placedAt && l.deliveredAt)
+    .map((l) => ({ ...l, mins: minutesBetween(l.placedAt, l.deliveredAt) }))
+    .filter((l) => l.mins != null)
+    .sort((x, y) => x.mins - y.mins);
+
+  const withWait = (l) => (l ? { ...l, wait: waitText(l.placedAt, l.deliveredAt) } : null);
+  const fast = laneCandidates.length >= 2 ? withWait(laneCandidates[0]) : null;
+  const standard = withWait(
+    laneCandidates.length >= 2 ? laneCandidates[laneCandidates.length - 1] : (laneCandidates[0] || null)
+  );
+
+  // Verdict from whichever lane will actually serve the next order — express
+  // first when it is live, else the fast lane, else the standard queue.
+  const eta = express
+    ? { tone: 'brand', short: 'Express delivery active', msg: express.wait ? `Recent express orders around ${express.wait}.` : 'Bundles landing in minutes.' }
+    : computeEta(fast || standard || data?.lastDelivered);
+
   return {
-    // Verdict from whichever lane will actually serve the next order.
-    eta: computeEta(fast || data?.lastDelivered),
+    eta,
+    express,
     fast,
     standard,
     lastDelivered: data?.lastDelivered || null,
@@ -187,7 +226,7 @@ function LaneRow({ icon: Icon, label, wait, order, tone, sentOnly }) {
 }
 
 export function DeliveryEtaBanner() {
-  const { eta, fast, standard, scanner } = useDeliveryEta();
+  const { eta, express, fast, standard, scanner } = useDeliveryEta();
   if (!eta) return null;
 
   /* Tinted in the status tone rather than sitting on plain paper. On a page of
@@ -214,7 +253,7 @@ export function DeliveryEtaBanner() {
           the status above says, these are REAL orders that really landed, with
           their ids and their clock times — the difference between "they say it
           is slow" and "it is slow AND still moving". */}
-      {(fast || standard) && (
+      {(express || fast || standard) && (
         <div
           className="mt-2.5 divide-y overflow-hidden rounded-md border"
           style={{
@@ -222,6 +261,7 @@ export function DeliveryEtaBanner() {
             borderTopColor: `color-mix(in srgb, var(--${eta.tone}) 22%, transparent)`,
           }}
         >
+          <LaneRow icon={Rocket} label="Express" wait={express?.wait} order={express} tone="brand" />
           <LaneRow icon={Zap} label="Fast lane" wait={fast?.wait} order={fast} tone="ok" />
           <LaneRow icon={Clock} label="Standard queue" wait={standard?.wait} order={standard} sentOnly={standard?.sentOnly} />
         </div>
@@ -238,20 +278,26 @@ export function DeliveryEtaBanner() {
 }
 
 export function DeliveryEtaInline() {
-  const { eta, fast } = useDeliveryEta();
+  const { eta, express, fast } = useDeliveryEta();
 
   if (!eta) {
     return <p className="text-center text-xs text-ink-4">Usually 10 minutes to 24 hours</p>;
   }
 
+  // In the confirm modal there is room for exactly one number — the lane about
+  // to take THIS order. Express wins when it is live, else the fast lane.
+  const lead = express?.wait
+    ? { label: 'Express', wait: express.wait, tone: 'brand' }
+    : fast?.wait
+      ? { label: 'Fast lane', wait: fast.wait, tone: 'ok' }
+      : null;
+
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-ink-3">
       <span className="pulse-dot" style={{ background: `var(--${eta.tone})` }} />
       <span>{eta.msg}</span>
-      {/* In the confirm modal there is room for exactly one number, and the one
-          that matters is the lane about to take THIS order. */}
-      {fast?.wait && (
-        <span className="num font-semibold" style={{ color: 'var(--ok)' }}>Fast lane · {fast.wait}</span>
+      {lead && (
+        <span className="num font-semibold" style={{ color: `var(--${lead.tone})` }}>{lead.label} · {lead.wait}</span>
       )}
     </p>
   );
