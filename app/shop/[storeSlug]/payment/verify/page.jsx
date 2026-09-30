@@ -6,6 +6,8 @@ import { CheckCircle, XCircle, Clock, Loader2, Home, ShoppingBag, Copy, RefreshC
 import WhatsAppIcon from '../../components/WhatsAppIcon';
 import { DeliveryEtaInline } from '../../components/DeliveryEta';
 
+import SpinWin from '../../components/SpinWin';
+
 const API_BASE = 'https://api.datamartgh.shop/api';
 
 function PaymentVerifyContent() {
@@ -283,6 +285,9 @@ function PaymentVerifyContent() {
         subtitle={done ? 'Delivered. Check the phone.' : 'Your order is confirmed and queued.'}
       >
         <CopyRow label="Transaction ID" value={transaction?.transactionId} />
+
+        {/* Renders nothing unless the backend says this order earned a spin. */}
+        <SpinWin reference={transaction?.transactionId || reference} />
 
         <dl className="divide-y divide-hairline border-y border-hairline">
           {rows.map((row) => (
