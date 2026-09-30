@@ -18,7 +18,16 @@ const API_BASE = 'https://api.datamartgh.shop/api';
  * is not eligible sees the receipt exactly as before rather than a dead wheel
  * telling them they cannot play.
  */
-export default function SpinWin({ reference, storeSlug, onState }) {
+export default function SpinWin({ reference, storeSlug, onState, orderPhone }) {
+  /**
+   * The number the ORDER was for — proof that this reference is yours.
+   *
+   * The receipt already knows it and passes it in, so a customer who just paid
+   * types nothing. Someone who arrived by typing a reference into the lookup
+   * form has to supply it, which is what stops a guessed reference spinning or
+   * claiming a stranger's prize.
+   */
+  const [verify, setVerify] = useState(orderPhone || '');
   const [state, setState] = useState('checking');   // checking|ready|spinning|won|lost|claiming|done|hidden
   const [prize, setPrize] = useState(null);
   const [phone, setPhone] = useState('');
@@ -75,7 +84,7 @@ export default function SpinWin({ reference, storeSlug, onState }) {
       const res = await fetch(`${API_BASE}/store-spin/spin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reference }),
+        body: JSON.stringify({ reference, verifyPhone: verify }),
       });
       const json = await res.json();
       const d = json?.data;
@@ -102,7 +111,7 @@ export default function SpinWin({ reference, storeSlug, onState }) {
       const res = await fetch(`${API_BASE}/store-spin/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reference, phone }),
+        body: JSON.stringify({ reference, phone, verifyPhone: verify }),
       });
       const json = await res.json();
       if (json.status !== 'success') {
@@ -132,10 +141,21 @@ export default function SpinWin({ reference, storeSlug, onState }) {
           <Wheel spinning={state === 'spinning'} />
           <p className="mt-3 text-[14px] font-semibold text-ink">You&rsquo;ve earned a spin</p>
           <p className="mt-1 text-[12.5px] text-ink-3">Thanks for your order. Try your luck &mdash; free data up for grabs.</p>
+          {!orderPhone && (
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={verify}
+              onChange={(e) => setVerify(e.target.value)}
+              placeholder="Number on this order"
+              className="input num mt-3 w-full text-center"
+              maxLength={12}
+            />
+          )}
           <button
             type="button"
             onClick={doSpin}
-            disabled={state === 'spinning'}
+            disabled={state === 'spinning' || verify.replace(/\D/g, '').length < 9}
             className="btn btn-primary mt-3 w-full"
           >
             {state === 'spinning'
@@ -182,19 +202,30 @@ export default function SpinWin({ reference, storeSlug, onState }) {
             <p className="mt-2 text-[15px] font-bold text-ink">You won {prize?.label}!</p>
             <p className="mt-1 text-[12.5px] text-ink-3">Which number should we send it to?</p>
           </div>
+          {!orderPhone && (
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={verify}
+              onChange={(e) => setVerify(e.target.value)}
+              placeholder="Number on this order"
+              className="input num mt-3 w-full text-center"
+              maxLength={12}
+            />
+          )}
           <input
             type="tel"
             inputMode="numeric"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="0XX XXX XXXX"
-            className="input num mt-3 w-full text-center"
+            placeholder="Send the data to..."
+            className="input num mt-2 w-full text-center"
             maxLength={12}
           />
           <button
             type="button"
             onClick={claim}
-            disabled={state === 'claiming' || phone.replace(/\D/g, '').length < 10}
+            disabled={state === 'claiming' || phone.replace(/\D/g, '').length < 10 || verify.replace(/\D/g, '').length < 9}
             className="btn btn-primary mt-2 w-full"
           >
             {state === 'claiming'
