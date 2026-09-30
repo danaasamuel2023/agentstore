@@ -287,7 +287,7 @@ function PaymentVerifyContent() {
         <CopyRow label="Transaction ID" value={transaction?.transactionId} />
 
         {/* Renders nothing unless the backend says this order earned a spin. */}
-        <SpinWin reference={transaction?.transactionId || reference} />
+        <SpinWin reference={transaction?.transactionId || reference} storeSlug={params.storeSlug} />
 
         <dl className="divide-y divide-hairline border-y border-hairline">
           {rows.map((row) => (

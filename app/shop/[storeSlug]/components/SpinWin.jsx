@@ -18,12 +18,13 @@ const API_BASE = 'https://api.datamartgh.shop/api';
  * is not eligible sees the receipt exactly as before rather than a dead wheel
  * telling them they cannot play.
  */
-export default function SpinWin({ reference }) {
+export default function SpinWin({ reference, storeSlug }) {
   const [state, setState] = useState('checking');   // checking|ready|spinning|won|lost|claiming|done|hidden
   const [prize, setPrize] = useState(null);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState(null);
+  const [closed, setClosed] = useState(null);   // { opensAt, hoursLabel }
 
   useEffect(() => {
     if (!reference) return setState('hidden');
@@ -49,6 +50,16 @@ export default function SpinWin({ reference }) {
           return setState('done');
         }
         if (d.eligible) return setState('ready');
+        /**
+         * Shut for the night, not ineligible. Someone buying at 2am would come
+         * back at 8am if they knew there was a reason to, and the server has
+         * already told us when that is — hiding it throws away free reach on a
+         * screen they are already looking at.
+         */
+        if (d.reason === 'closed') {
+          setClosed({ opensAt: d.opensAt, hoursLabel: d.hoursLabel });
+          return setState('closed');
+        }
         setState('hidden');
       } catch {
         if (alive) setState('hidden');
@@ -126,6 +137,28 @@ export default function SpinWin({ reference }) {
               : (<><Gift className="h-4 w-4" /> Spin now</>)}
           </button>
           {error && <p className="mt-2 text-[12.5px]" style={{ color: 'var(--warn)' }}>{error}</p>}
+          {storeSlug && state === 'ready' && (
+            <a href={`/shop/${storeSlug}/spin-win`} className="mt-2 inline-block text-[12px] text-ink-3 underline">
+              How it works
+            </a>
+          )}
+        </div>
+      )}
+
+      {state === 'closed' && (
+        <div className="text-center">
+          <Gift className="mx-auto h-6 w-6" style={{ color: 'var(--ink-3)' }} />
+          <p className="mt-2 text-[13.5px] font-semibold text-ink">
+            Spin &amp; Win opens at {closed?.opensAt || '8am'}
+          </p>
+          <p className="mt-1 text-[12.5px] text-ink-3">
+            Buy again during {closed?.hoursLabel || '8am–9pm'} and you can spin for free data.
+          </p>
+          {storeSlug && (
+            <a href={`/shop/${storeSlug}/spin-win`} className="mt-2 inline-block text-[12.5px] font-semibold underline">
+              How it works
+            </a>
+          )}
         </div>
       )}
 
