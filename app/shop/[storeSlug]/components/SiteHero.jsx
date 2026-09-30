@@ -29,6 +29,59 @@ import Link from 'next/link';
 import { sellsCheckers } from './SiteNav';
 import { ConnectedArt } from './StoryArt';
 import { ArrowRight, GraduationCap } from 'lucide-react';
+import { useStoreDesign } from '@/lib/storeDesign';
+
+/* Background textures, all drawn in the band's own ink so they suit any colour.
+   'dots' is the original and stays byte-identical for legacy shops. */
+function HeroPattern({ kind }) {
+  if (kind === 'none') return null;
+  if (kind === 'grid') {
+    return (
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(color-mix(in srgb, var(--brand-ink) 22%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--brand-ink) 22%, transparent) 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+          opacity: 0.35,
+          maskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
+        }}
+      />
+    );
+  }
+  if (kind === 'waves') {
+    return (
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full sm:h-56"
+        viewBox="0 0 1200 220"
+        preserveAspectRatio="none"
+        fill="none"
+        style={{ color: 'var(--brand-ink)', opacity: 0.16 }}
+      >
+        <path d="M0 120 C 200 60, 400 180, 600 120 S 1000 60, 1200 120" stroke="currentColor" strokeWidth="2" />
+        <path d="M0 160 C 200 100, 400 220, 600 160 S 1000 100, 1200 160" stroke="currentColor" strokeWidth="2" />
+        <path d="M0 80 C 200 20, 400 140, 600 80 S 1000 20, 1200 80" stroke="currentColor" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{
+        backgroundImage:
+          'radial-gradient(color-mix(in srgb, var(--brand-ink) 26%, transparent) 1px, transparent 1px)',
+        backgroundSize: '22px 22px',
+        opacity: 0.28,
+        maskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
+        WebkitMaskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
+      }}
+    />
+  );
+}
 
 
 /**
@@ -51,12 +104,22 @@ function HeroArt() {
 }
 
 export default function SiteHero({ store, storeSlug, style = 'default' }) {
-  const tagline =
-    store?.customization?.heroHeadline ||
-    store?.storeDescription ||
-    'Data bundles for every network, delivered straight to any number.';
+  const { design, legacy } = useStoreDesign();
+  const fallbackTagline = 'Data bundles for every network, delivered straight to any number.';
+  // Legacy shops keep the exact original expression (raw stored headline).
+  const tagline = legacy
+    ? store?.customization?.heroHeadline || store?.storeDescription || fallbackTagline
+    : design.headline || store?.storeDescription || fallbackTagline;
+  const subheadline = legacy ? '' : design.subheadline;
+  const ctaLabel = (!legacy && design.ctaLabel) || 'Buy data';
+  const pattern = legacy ? 'dots' : design.heroPattern;
+  const center = !legacy && design.heroAlign === 'center';
+  const compact = !legacy && design.density === 'compact';
 
   const slim = style === 'minimal';
+  const pad = slim
+    ? compact ? 'pb-8 pt-20 sm:pb-10 sm:pt-28' : 'pb-10 pt-24 sm:pb-12 sm:pt-32'
+    : compact ? 'pb-10 pt-20 sm:pb-14 sm:pt-28' : 'pb-14 pt-24 sm:pb-20 sm:pt-36';
 
   return (
     <section
@@ -68,27 +131,12 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
       className="relative -mt-16 sm:-mt-[72px]"
       style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}
     >
-      {/* Dot grid. Sits under the content and never over the text. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'radial-gradient(color-mix(in srgb, var(--brand-ink) 26%, transparent) 1px, transparent 1px)',
-          backgroundSize: '22px 22px',
-          opacity: 0.28,
-          maskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
-          WebkitMaskImage: 'radial-gradient(120% 90% at 15% 0%, #000 20%, transparent 75%)',
-        }}
-      />
+      {/* Background texture. Sits under the content and never over the text. */}
+      <HeroPattern kind={pattern} />
 
-      <div
-        className={`relative mx-auto max-w-6xl px-4 ${
-          slim ? 'pb-10 pt-24 sm:pb-12 sm:pt-32' : 'pb-14 pt-24 sm:pb-20 sm:pt-36'
-        }`}
-      >
-        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_auto]">
-          <div className="max-w-2xl">
+      <div className={`relative mx-auto max-w-6xl px-4 ${pad}`}>
+        <div className={center ? 'grid items-center gap-10' : 'grid items-center gap-10 lg:grid-cols-[1.15fr_auto]'}>
+          <div className={center ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
             <h1
               className="tracking-[-0.035em]"
               style={{
@@ -102,19 +150,28 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
             </h1>
 
             <p
-              className="mt-4 max-w-lg text-[16px] leading-relaxed sm:text-[18px]"
+              className={`mt-4 max-w-lg text-[16px] leading-relaxed sm:text-[18px]${center ? ' mx-auto' : ''}`}
               style={{ opacity: 0.8 }}
             >
               {tagline}
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            {subheadline && (
+              <p
+                className={`mt-2 max-w-lg text-[14px] leading-relaxed sm:text-[15px]${center ? ' mx-auto' : ''}`}
+                style={{ opacity: 0.68 }}
+              >
+                {subheadline}
+              </p>
+            )}
+
+            <div className={`mt-8 flex flex-wrap items-center gap-3${center ? ' justify-center' : ''}`}>
               <Link
                 href={`/shop/${storeSlug}/products`}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
+                className="dm-cta dm-cta-inv inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
                 style={{ background: 'var(--brand-ink)', color: 'var(--brand)' }}
               >
-                Buy data
+                {ctaLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
 
@@ -125,7 +182,7 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
               {sellsCheckers(store) && (
                 <Link
                   href={`/shop/${storeSlug}/checkers`}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
+                  className="dm-cta inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
                   style={{
                     borderColor: 'color-mix(in srgb, var(--brand-ink) 40%, transparent)',
                     color: 'var(--brand-ink)',
@@ -138,7 +195,7 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
             </div>
           </div>
 
-          {!slim && (
+          {!slim && !center && (
             <div className="hidden justify-self-end lg:block">
               <HeroArt />
             </div>

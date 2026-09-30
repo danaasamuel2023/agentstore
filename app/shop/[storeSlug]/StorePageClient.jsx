@@ -18,13 +18,14 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import WhatsAppIcon from './components/WhatsAppIcon';
 import { networkOf } from '@/lib/storeTheme';
 import PackageDisplay from './components/PackageDisplay';
 import SiteHero from './components/SiteHero';
 import NetworkLogo from './components/NetworkLogo';
 import { DeliveryEtaBanner } from './components/DeliveryEta';
+import { useStoreDesign, sectionOrder } from '@/lib/storeDesign';
 
 const NETWORK_ORDER = ['YELLO', 'TELECEL', 'AT_PREMIUM'];
 
@@ -38,8 +39,31 @@ const COMMITMENTS = [
   ['If it fails, you get it back', 'A bundle that does not deliver is refunded. Keep the tracking ID and we can find it.'],
 ];
 
+/** Owner FAQ (AI store designer). Native <details>, so it is keyboard- and
+ *  screen-reader-accessible without any script. Plain text only. */
+function Faq({ items }) {
+  if (!items?.length) return null;
+  return (
+    <section className="space-y-3.5">
+      <h2 className="text-[18px]">Questions</h2>
+      <div className="stack">
+        {items.map((f, i) => (
+          <details key={i} className="dm-faq group px-5 py-4">
+            <summary className="flex items-center justify-between gap-4 text-[14px] font-semibold text-ink">
+              {f.q}
+              <ChevronDown className="dm-faq-chevron h-4 w-4 flex-none transition-transform" style={{ color: 'var(--accent, var(--brand))' }} />
+            </summary>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-ink-3">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function StorePageClient({ storeSlug, initialStore, initialProducts }) {
   const store = initialStore;
+  const { design, legacy } = useStoreDesign();
   const products = useMemo(() => initialProducts || [], [initialProducts]);
 
   /* One pass over the catalogue rather than six filter() calls. Gives, per
@@ -83,69 +107,80 @@ export default function StorePageClient({ storeSlug, initialStore, initialProduc
   const availableNetworks = NETWORK_ORDER.filter((key) => byNetwork[key]?.count);
   const whatsapp = store.contactInfo?.whatsappNumber?.replace(/\D/g, '');
 
-  return (
-    <>
-      <SiteHero
-        store={store}
+  const promises = !legacy && design.promises?.length
+    ? design.promises.map((p) => [p.title, p.body])
+    : COMMITMENTS;
+  const compact = !legacy && design.density === 'compact';
+
+  const SECTIONS = {
+    /* First thing under the hero. Someone arriving already wondering
+       "is it slow today?" gets the answer before they look at a price,
+       and if it is slow they find that out before paying rather than
+       after. It used to sit three sections down, below the bundles it
+       should be qualifying. */
+    delivery: () => <DeliveryEtaBanner key="delivery" />,
+
+    popular: () => (
+      <PackageDisplay
+        key="popular"
+        products={popular}
         storeSlug={storeSlug}
-        style={store?.customization?.heroStyle || 'default'}
+        title="Popular bundles"
+        layout={design.productLayout}
       />
+    ),
 
-      <div className="mx-auto max-w-5xl space-y-11 px-4 py-10 sm:py-12">
-        {/* First thing under the hero. Someone arriving already wondering
-            "is it slow today?" gets the answer before they look at a price,
-            and if it is slow they find that out before paying rather than
-            after. It used to sit three sections down, below the bundles it
-            should be qualifying. */}
-        <DeliveryEtaBanner />
+    /* Browse by network — just the marks. People recognise these faster
+       than they read the words next to them, and the counts and prices
+       they used to carry are already on every tile above. */
+    networks: () =>
+      availableNetworks.length > 0 && (
+        <section key="networks" className="space-y-3.5">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-[18px]">Browse by network</h2>
+            <Link
+              href={`/shop/${storeSlug}/products`}
+              className="flex items-center gap-0.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+            >
+              All prices
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
 
-        <PackageDisplay products={popular} storeSlug={storeSlug} title="Popular bundles" />
-
-        {/* Browse by network — just the marks. People recognise these faster
-            than they read the words next to them, and the counts and prices
-            they used to carry are already on every tile above. */}
-        {availableNetworks.length > 0 && (
-          <section className="space-y-3.5">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-[18px]">Browse by network</h2>
+          <div className="flex flex-wrap gap-3">
+            {availableNetworks.map((key) => (
               <Link
-                href={`/shop/${storeSlug}/products`}
-                className="flex items-center gap-0.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink"
+                key={key}
+                href={`/shop/${storeSlug}/products?network=${key}`}
+                aria-label={networkOf(key).name}
+                title={networkOf(key).name}
+                className="card flex items-center justify-center p-4 transition-colors hover:border-brand-line hover:bg-sunken"
               >
-                All prices
-                <ChevronRight className="h-3.5 w-3.5" />
+                <NetworkLogo network={key} size={52} />
               </Link>
-            </div>
+            ))}
+          </div>
+        </section>
+      ),
 
-            <div className="flex flex-wrap gap-3">
-              {availableNetworks.map((key) => (
-                <Link
-                  key={key}
-                  href={`/shop/${storeSlug}/products?network=${key}`}
-                  aria-label={networkOf(key).name}
-                  title={networkOf(key).name}
-                  className="card flex items-center justify-center p-4 transition-colors hover:border-brand-line hover:bg-sunken"
-                >
-                  <NetworkLogo network={key} size={52} />
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-      {/* The honest version of the badge strip that used to sit here. Every line
-          is something a customer could hold the shop to. */}
-      <section className="card divide-y divide-hairline">
-        {COMMITMENTS.map(([title, body]) => (
+    /* The honest version of the badge strip that used to sit here. Every line
+       is something a customer could hold the shop to. */
+    promises: () => (
+      <section key="promises" className="card divide-y divide-hairline">
+        {promises.map(([title, body]) => (
           <div key={title} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:gap-6">
             <h3 className="text-[13.5px] sm:w-56 sm:flex-none">{title}</h3>
             <p className="text-[13px] leading-relaxed text-ink-3">{body}</p>
           </div>
         ))}
       </section>
+    ),
 
-      {(whatsapp || store.contactInfo?.phoneNumber) && (
-        <section className="flex flex-col items-start gap-3 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
+    faq: () => (legacy ? null : <Faq key="faq" items={design.faq} />),
+
+    contact: () =>
+      (whatsapp || store.contactInfo?.phoneNumber) && (
+        <section key="contact" className="flex flex-col items-start gap-3 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-[15px]">Stuck on an order?</h2>
             <p className="mt-1 text-[13px] text-ink-3">
@@ -169,8 +204,22 @@ export default function StorePageClient({ storeSlug, initialStore, initialProduc
               Call {store.contactInfo.phoneNumber}
             </a>
           )}
-          </section>
-        )}
+        </section>
+      ),
+  };
+
+  return (
+    <>
+      <SiteHero store={store} storeSlug={storeSlug} style={design.heroStyle} />
+
+      <div
+        className={
+          compact
+            ? 'mx-auto max-w-5xl space-y-7 px-4 py-7 sm:py-8'
+            : 'mx-auto max-w-5xl space-y-11 px-4 py-10 sm:py-12'
+        }
+      >
+        {sectionOrder(design).map((id) => SECTIONS[id]?.())}
       </div>
     </>
   );

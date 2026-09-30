@@ -16,6 +16,11 @@
  * depending on which is actually readable on that colour (MTN yellow needs
  * black; Telecel red and AirtelTigo blue need white) — decided by `networkOf`,
  * not guessed per component.
+ *
+ * Layout variants (AI store designer, lib/designSpec.js `productLayout`):
+ * 'cards' is the tile below and is what every shop without a saved design
+ * gets. The stored legacy `packageDisplayStyle` is still ignored — only a
+ * design the owner saved (or is previewing) can pick 'grid' / 'compact' / 'list'.
  */
 
 import Link from 'next/link';
@@ -92,6 +97,83 @@ function Blocks({ products, storeSlug }) {
   );
 }
 
+/** Smaller tiles, more per row. */
+function SmallTiles({ products, storeSlug }) {
+  return (
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+      {products.map((product) => {
+        const net = networkOf(product.network);
+        return (
+          <Link
+            key={product._id}
+            href={`/shop/${storeSlug}/products?network=${product.network}`}
+            className="flex flex-col justify-between rounded-xl p-3.5 transition-transform active:scale-[.985]"
+            style={{ background: net.hex, color: net.ink, minHeight: 112 }}
+          >
+            <span className="text-[11px] font-bold tracking-wide" style={{ opacity: 0.8 }}>{net.name}</span>
+            <span className="num mt-2 text-[24px] font-bold leading-none">{product.capacity}GB</span>
+            <span className="num mt-3 text-[16px] font-bold leading-none">{cedis(priceOf(product))}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Two-up rows with a network colour edge. */
+function CompactRows({ products, storeSlug }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {products.map((product) => {
+        const net = networkOf(product.network);
+        return (
+          <Link
+            key={product._id}
+            href={`/shop/${storeSlug}/products?network=${product.network}`}
+            className="card flex items-center gap-3 overflow-hidden py-2.5 pl-0 pr-3 transition-colors hover:bg-sunken"
+          >
+            <span aria-hidden className="h-10 w-1.5 flex-none rounded-r" style={{ background: net.hex }} />
+            <NetworkLogo network={product.network} size={28} />
+            <span className="min-w-0 flex-1">
+              <span className="num block text-[15px] font-bold text-ink">{product.capacity}GB</span>
+              <span className="block text-[12px] text-ink-3">{net.name}</span>
+            </span>
+            <span className="num text-[15px] font-bold text-ink">{cedis(priceOf(product))}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A plain price list. */
+function ListRows({ products, storeSlug }) {
+  return (
+    <div className="stack">
+      {products.map((product) => {
+        const net = networkOf(product.network);
+        return (
+          <Link
+            key={product._id}
+            href={`/shop/${storeSlug}/products?network=${product.network}`}
+            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-sunken"
+          >
+            <NetworkLogo network={product.network} size={30} />
+            <span className="min-w-0 flex-1 text-[14px] text-ink">
+              <span className="num font-semibold">{product.capacity}GB</span>{' '}
+              <span className="text-ink-3">{net.name} bundle</span>
+            </span>
+            <span className="num text-[15px] font-bold text-ink">{cedis(priceOf(product))}</span>
+            <ChevronRight className="h-4 w-4 text-ink-4" />
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+const LAYOUTS = { cards: Blocks, grid: SmallTiles, compact: CompactRows, list: ListRows };
+
 /* -------------------------------------------------------------------------- */
 
 export default function PackageDisplay({
@@ -99,7 +181,9 @@ export default function PackageDisplay({
   storeSlug,
   title = 'Popular bundles',
   showAllLink = true,
+  layout = 'cards',
 }) {
+  const Layout = LAYOUTS[layout] || Blocks;
 
   if (!products || products.length === 0) return null;
 
@@ -122,7 +206,7 @@ export default function PackageDisplay({
         </div>
       </div>
 
-      <Blocks products={products} storeSlug={storeSlug} />
+      <Layout products={products} storeSlug={storeSlug} />
     </section>
   );
 }

@@ -124,7 +124,10 @@ export default function SiteNav({
   onToggleTheme,
   onCheckNumber,
   subAgentEnabled,
+  navStyle = 'default',   // 'default' | 'centered' | 'minimal' — from the store design
 }) {
+  const centered = navStyle === 'centered';
+  const minimal = navStyle === 'minimal';
   /* Start solid. Transparent-with-light-text is only ever safe when the hero is
      provably behind the bar, so that is the state we have to earn, not the one
      we default to — a wrong guess here paints white text on white page. */
@@ -213,12 +216,27 @@ export default function SiteNav({
           boxShadow: solid ? 'var(--lift-2)' : 'none',
         }}
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:h-[72px]">
-          <Link href={`/shop/${storeSlug}`} className="min-w-0">
+        <div
+          className={
+            centered
+              ? 'mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 sm:h-[72px]'
+              : 'mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:h-[72px]'
+          }
+        >
+          {centered && <span className="order-1 md:hidden" aria-hidden />}
+          <Link href={`/shop/${storeSlug}`} className={centered ? 'order-2 min-w-0 justify-self-center' : 'min-w-0'}>
             <Wordmark store={store} />
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav
+            className={
+              minimal
+                ? 'hidden'
+                : centered
+                  ? 'order-1 hidden items-center gap-1 justify-self-start md:flex'
+                  : 'hidden items-center gap-1 md:flex'
+            }
+          >
             {navLinks.map((link) => {
               const active = isActive(link.path);
               return (
@@ -265,7 +283,7 @@ export default function SiteNav({
             )}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className={centered ? 'order-3 flex items-center gap-2 justify-self-end' : 'flex items-center gap-2'}>
             {/* In the bar at every width, not just from `sm` up. Below that it
                 used to live only inside the full-screen menu, so switching
                 theme on a phone meant open menu -> tap -> close menu. It is a
@@ -282,7 +300,7 @@ export default function SiteNav({
 
             <Link
               href={`/shop/${storeSlug}/products`}
-              className="hidden h-10 items-center gap-2 rounded-lg px-4 text-[14px] font-semibold transition-opacity hover:opacity-90 sm:inline-flex"
+              className="dm-cta dm-cta-inv hidden h-10 items-center gap-2 rounded-lg px-4 text-[14px] font-semibold transition-opacity hover:opacity-90 sm:inline-flex"
               style={{ background: 'var(--brand-ink)', color: 'var(--brand)' }}
             >
               Buy data
@@ -292,7 +310,7 @@ export default function SiteNav({
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg md:hidden"
+              className={`flex h-10 w-10 items-center justify-center rounded-lg ${minimal ? '' : 'md:hidden'}`}
               style={{ color: 'var(--brand-ink)' }}
               aria-label="Open menu"
             >
@@ -305,7 +323,7 @@ export default function SiteNav({
       {/* ---- Full-screen mobile menu, in the shop's own colour ---- */}
       {menuOpen && (
         <div
-          className="animate-fadeIn fixed inset-0 z-[60] flex flex-col md:hidden"
+          className={`animate-fadeIn fixed inset-0 z-[60] flex flex-col ${minimal ? '' : 'md:hidden'}`}
           style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}
         >
           <div className="flex h-16 items-center justify-between px-4">
@@ -398,7 +416,7 @@ export default function SiteNav({
             <Link
               href={`/shop/${storeSlug}/products`}
               onClick={() => setMenuOpen(false)}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold"
+              className="dm-cta dm-cta-inv flex h-12 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold"
               style={{ background: 'var(--brand-ink)', color: 'var(--brand)' }}
             >
               Buy data

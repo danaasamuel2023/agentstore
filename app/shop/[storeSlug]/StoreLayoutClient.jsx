@@ -20,7 +20,9 @@ import Link from 'next/link';
 import { Users, ExternalLink, Phone, Store, LogIn } from 'lucide-react';
 import WhatsAppIcon from './components/WhatsAppIcon';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
-import { storeVars } from '@/lib/storeTheme';
+import { resolveDesign, designVars, designAttrs, fontHref, StoreDesignProvider } from '@/lib/storeDesign';
+import { sanitizeDesign } from '@/lib/designSpec';
+import { PREVIEW_PARAM, MSG_READY, MSG_PREVIEW, isPreviewOrigin } from '@/lib/designPreview';
 import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
 import SiteNav, { navLinksFor } from './components/SiteNav';
@@ -65,16 +67,77 @@ export default function StoreLayoutClient({ children, initialStore }) {
     initialStore ? extractDesignSettings(initialStore) : null
   );
 
+  /* AI store designer live preview (?designPreview=1 inside the dashboard's
+     iframe). The editor posts un-saved designs; we sanitise and draw them.
+     Read from window.location, not useSearchParams, so the layout needs no
+     Suspense boundary. */
+  const [isPreview, setIsPreview] = useState(false);
+  const [previewDesign, setPreviewDesign] = useState(null);
+  const [themeOverride, setThemeOverride] = useState(null); // session-only, for forced/preview themes
+  const [previewToast, setPreviewToast] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get(PREVIEW_PARAM) !== '1') return undefined;
+    setIsPreview(true);
+    const onMessage = (e) => {
+      if (!isPreviewOrigin(e.origin)) return;
+      if (!e.data || e.data.type !== MSG_PREVIEW) return;
+      setPreviewDesign(sanitizeDesign(e.data.design));
+      setThemeOverride(null);
+    };
+    window.addEventListener('message', onMessage);
+    try {
+      if (window.parent && window.parent !== window) window.parent.postMessage({ type: MSG_READY }, '*');
+    } catch {
+      // not framed / cross-origin parent — nothing to tell
+    }
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  /* In preview nobody may buy: every link and form is stopped at capture. */
+  useEffect(() => {
+    if (!isPreview) return undefined;
+    let timer = 0;
+    const stop = (e) => {
+      const link = e.type === 'click' ? e.target.closest?.('a[href]') : null;
+      if (e.type === 'click' && !link) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPreviewToast(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setPreviewToast(false), 2200);
+    };
+    document.addEventListener('click', stop, true);
+    document.addEventListener('submit', stop, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', stop, true);
+      document.removeEventListener('submit', stop, true);
+    };
+  }, [isPreview]);
+
   useEffect(() => {
     const saved = localStorage.getItem('shopDarkMode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     setDarkMode(saved ? saved === 'true' : prefersDark);
   }, []);
 
+  const resolved = useMemo(() => resolveDesign(store, previewDesign), [store, previewDesign]);
+  const { design, legacy } = resolved;
+  // 'dark' designs force the dark theme; in preview a 'light' design shows light.
+  // Legacy stores and 'light' designs keep the visitor's own choice, as before.
+  const forcedDark = !legacy && design.mode === 'dark';
+  const baseDark = forcedDark ? true : isPreview ? false : darkMode;
+  const effectiveDark = themeOverride ?? baseDark;
+
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
+    document.documentElement.classList.toggle('dark', effectiveDark);
+  }, [effectiveDark]);
+
+  useEffect(() => {
+    if (isPreview) return;
     localStorage.setItem('shopDarkMode', String(darkMode));
-  }, [darkMode]);
+  }, [darkMode, isPreview]);
 
   useEffect(() => {
     const load = async () => {
@@ -116,7 +179,13 @@ export default function StoreLayoutClient({ children, initialStore }) {
     checkSubAgent();
   }, [params.storeSlug, initialStore]);
 
-  const brandStyle = useMemo(() => storeVars(store, darkMode), [store, darkMode]);
+  const brandStyle = useMemo(() => designVars(store, resolved, effectiveDark), [store, resolved, effectiveDark]);
+  const brandAttrs = designAttrs(resolved);
+  const fontLink = legacy ? null : fontHref(design.font);
+  const toggleTheme = () => {
+    if (forcedDark || isPreview) setThemeOverride(!effectiveDark);
+    else setDarkMode(!darkMode);
+  };
 
   const isOpen = () => {
     if (!store?.isOpen) return false;
@@ -165,15 +234,24 @@ export default function StoreLayoutClient({ children, initialStore }) {
   const isHome = isActive('');
 
   return (
-    <div style={brandStyle} className="flex min-h-screen flex-col overflow-x-hidden bg-canvas">
+    <StoreDesignProvider value={{ design, legacy, preview: isPreview }}>
+    <div style={brandStyle} {...brandAttrs} className="flex min-h-screen flex-col overflow-x-hidden bg-canvas">
+      {fontLink && (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link rel="stylesheet" href={fontLink} precedence="default" />
+        </>
+      )}
       <SiteNav
         store={store}
         storeSlug={params.storeSlug}
         navLinks={navLinksFor(store)}
         isActive={isActive}
         overHero={isHome}
-        darkMode={darkMode}
-        onToggleTheme={() => setDarkMode(!darkMode)}
+        darkMode={effectiveDark}
+        onToggleTheme={toggleTheme}
+        navStyle={design.navStyle}
         onCheckNumber={() => setShowVerify(true)}
         subAgentEnabled={subAgentEnabled}
       />
@@ -184,7 +262,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
         {/* Inside main, so the inline banner variant sits BELOW the fixed nav
             instead of being painted over by it. Never on /owner/*: an
             announcement aimed at shoppers lands on the owner's sign-in form. */}
-        {store?.announcement?.enabled && !isOwnerArea && (
+        {store?.announcement?.enabled && !isOwnerArea && !isPreview && (
           <AnnouncementPopup
             announcement={store.announcement}
             style={
@@ -311,7 +389,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
         </div>
       </footer>
 
-      {whatsapp && (
+      {whatsapp && design.whatsappFloat && (
         <a
           href={`https://wa.me/${whatsapp}?text=${encodeURIComponent('Hi, I would like to buy data')}`}
           target="_blank"
@@ -324,9 +402,19 @@ export default function StoreLayoutClient({ children, initialStore }) {
         </a>
       )}
 
-      <PromoClaimButton storeSlug={params.storeSlug} />
+      {!isPreview && <PromoClaimButton storeSlug={params.storeSlug} />}
 
-      {store?.rezolv?.enabled && store?.rezolv?.apiKey && (
+      {isPreview && previewToast && (
+        <div
+          role="status"
+          className="animate-slideUp fixed inset-x-0 bottom-6 z-[70] mx-auto w-max max-w-[90vw] rounded-full px-4 py-2 text-[13px] font-semibold"
+          style={{ background: 'var(--ink)', color: 'var(--paper)', boxShadow: 'var(--lift-3)' }}
+        >
+          Preview — buying is off
+        </div>
+      )}
+
+      {!isPreview && store?.rezolv?.enabled && store?.rezolv?.apiKey && (
         <>
           <script
             dangerouslySetInnerHTML={{
@@ -337,5 +425,6 @@ export default function StoreLayoutClient({ children, initialStore }) {
         </>
       )}
     </div>
+    </StoreDesignProvider>
   );
 }

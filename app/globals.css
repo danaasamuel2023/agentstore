@@ -368,3 +368,35 @@ html { scroll-behavior: smooth; }
 @media (hover: none) {
   button:active, a:active { transform: scale(.985); transition: transform .1s; }
 }
+
+/* --------------------------------------------------------------------------
+   Owner designs (AI store designer).
+
+   Keyed off data-* attributes that lib/storeDesign.js puts on the shop wrapper
+   ONLY for stores that have saved a design (or the editor's live preview).
+   A legacy store carries none of these attributes, so none of this applies
+   and it renders exactly as before.
+   -------------------------------------------------------------------------- */
+
+/* Buttons: pill */
+[data-buttons="pill"] .btn,
+[data-buttons="pill"] .dm-cta { border-radius: var(--r-pill) !important; }
+
+/* Buttons: outline. .dm-cta-inv are the ink-on-brand CTAs that sit on the
+   brand band (hero, nav, mobile menu) — they outline in the band's ink. */
+[data-buttons="outline"] .btn-brand {
+  background: transparent;
+  color: var(--brand);
+  border: 1.5px solid var(--brand);
+}
+[data-buttons="outline"] .btn-brand:hover:not(:disabled) { background: var(--brand-soft); }
+[data-buttons="outline"] .dm-cta-inv {
+  background: transparent !important;
+  color: var(--brand-ink) !important;
+  border: 1.5px solid var(--brand-ink) !important;
+}
+
+/* FAQ accordion (native <details>). */
+.dm-faq summary { list-style: none; cursor: pointer; }
+.dm-faq summary::-webkit-details-marker { display: none; }
+.dm-faq[open] .dm-faq-chevron { transform: rotate(180deg); }
