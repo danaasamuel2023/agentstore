@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Gift, Clock, Smartphone, ShoppingBag, ShieldCheck, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Gift, Clock, Smartphone, ShoppingBag, ShieldCheck, HelpCircle, Search } from 'lucide-react';
+import SpinWin from '../components/SpinWin';
 
 /**
  * The public "how Spin & Win works" page.
@@ -131,10 +133,71 @@ export default function SpinWinInfoClient({ store, storeSlug }) {
         </p>
       </div>
 
+      <ClaimLookup storeSlug={storeSlug} />
+
       <Link href={`/shop/${storeSlug}`} className="btn btn-primary mt-5 w-full">
         <ShoppingBag className="h-4 w-4" />
         Buy data &amp; earn a spin
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Claim a prize you won but never collected.
+ *
+ * Recovery used to depend on still having the confirmation link. People close
+ * tabs, lose signal and clear history, and the prize was already theirs — it
+ * should not evaporate because the link did.
+ *
+ * It renders the SAME component the receipt uses rather than a second copy of
+ * the claim flow: the server already reports an unclaimed prize for any
+ * reference, so the only thing missing was somewhere to type one.
+ */
+function ClaimLookup({ storeSlug }) {
+  const [input, setInput] = useState('');
+  const [reference, setReference] = useState(null);
+  const [outcome, setOutcome] = useState(null);
+
+  return (
+    <div className="mt-6 rounded-2xl border border-hairline p-4">
+      <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+        <Search className="h-4 w-4" /> Won a prize but did not collect it?
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
+        Enter the transaction ID from your receipt or SMS and we will check.
+      </p>
+
+      <form
+        className="mt-2.5 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); setOutcome(null); setReference(input.trim()); }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="AGTTXN..."
+          className="input num min-w-0 flex-1"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <button type="submit" className="btn btn-ghost shrink-0" disabled={input.trim().length < 8}>
+          Check
+        </button>
+      </form>
+
+      {reference && (
+        <SpinWin key={reference} reference={reference} storeSlug={storeSlug} onState={setOutcome} />
+      )}
+
+      {/* SpinWin renders nothing when there is no prize on that reference, so
+          say so here — silence reads as a broken page. */}
+      {reference && (outcome === 'hidden' || outcome === 'checking') && (
+        <p className="mt-2.5 text-[12.5px] text-ink-3">
+          {outcome === 'checking'
+            ? 'Checking…'
+            : 'No unclaimed prize on that transaction ID. Check it against your receipt, or buy a bundle to earn a new spin.'}
+        </p>
+      )}
     </div>
   );
 }

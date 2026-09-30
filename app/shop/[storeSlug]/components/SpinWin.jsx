@@ -18,7 +18,7 @@ const API_BASE = 'https://api.datamartgh.shop/api';
  * is not eligible sees the receipt exactly as before rather than a dead wheel
  * telling them they cannot play.
  */
-export default function SpinWin({ reference, storeSlug }) {
+export default function SpinWin({ reference, storeSlug, onState }) {
   const [state, setState] = useState('checking');   // checking|ready|spinning|won|lost|claiming|done|hidden
   const [prize, setPrize] = useState(null);
   const [phone, setPhone] = useState('');
@@ -116,6 +116,12 @@ export default function SpinWin({ reference, storeSlug }) {
       setState('won');
     }
   }
+
+  // Tell a caller what we concluded. The claim-lookup form needs to say
+  // "nothing found" when this renders nothing, otherwise a customer who typed
+  // a valid reference with no prize on it just sees silence and assumes the
+  // page is broken.
+  useEffect(() => { if (onState) onState(state); }, [state, onState]);
 
   if (state === 'checking' || state === 'hidden') return null;
 
