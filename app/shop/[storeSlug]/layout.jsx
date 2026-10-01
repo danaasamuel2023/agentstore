@@ -1,4 +1,6 @@
 import StoreLayoutClient from './StoreLayoutClient';
+import { fetchCustomDesign } from '@/lib/customDesign.server';
+import { customShell } from '@/lib/customDesign';
 
 const API_BASE = 'https://api.datamartgh.shop';
 
@@ -88,7 +90,9 @@ export async function generateMetadata({ params }) {
 
 export default async function StoreLayout({ children, params }) {
   const { storeSlug } = await params;
-  const store = await getStoreData(storeSlug);
+  // The shared custom design (website builder) themes the whole store. Null
+  // (none published, or the builder unreachable) → the classic look, unchanged.
+  const [store, customDesign] = await Promise.all([getStoreData(storeSlug), fetchCustomDesign(storeSlug)]);
 
   // JSON-LD structured data for search engines
   const jsonLd = store ? {
@@ -128,7 +132,7 @@ export default async function StoreLayout({ children, params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <StoreLayoutClient initialStore={store}>{children}</StoreLayoutClient>
+      <StoreLayoutClient initialStore={store} initialCustomDesign={customShell(customDesign)}>{children}</StoreLayoutClient>
     </>
   );
 }

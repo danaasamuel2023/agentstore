@@ -1,4 +1,7 @@
 import StorePageClient from './StorePageClient';
+import CustomDesignPage from './components/CustomDesignPage';
+import { fetchCustomDesign } from '@/lib/customDesign.server';
+import { cleanPreviewToken, customShell, SITE_PREVIEW_PARAM } from '@/lib/customDesign';
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
@@ -28,8 +31,17 @@ async function getProducts(storeSlug) {
   }
 }
 
-export default async function StorePage({ params }) {
+export default async function StorePage({ params, searchParams }) {
   const { storeSlug } = await params;
+  const sp = (await searchParams) || {};
+  const previewToken = cleanPreviewToken(sp[SITE_PREVIEW_PARAM]);
+
+  // A shared custom design (website builder) replaces the classic home body.
+  // No design, or the builder unreachable → classic home, exactly as before.
+  const custom = await fetchCustomDesign(storeSlug, previewToken);
+  if (custom?.pages?.['/']) {
+    return <CustomDesignPage design={customShell(custom)} page={custom.pages['/']} preview={!!previewToken} />;
+  }
 
   const [store, products] = await Promise.all([
     getStoreData(storeSlug),

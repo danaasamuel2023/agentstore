@@ -14,7 +14,7 @@
  * so no store's colour ever actually reached the page.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Users, ExternalLink, Phone, Store, LogIn } from 'lucide-react';
@@ -27,6 +27,8 @@ import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
 import SiteNav, { navLinksFor } from './components/SiteNav';
 import VerifyNumberModal from './components/VerifyNumberModal';
+import { customThemeDesign, customNavLinks, SITE_PREVIEW_PARAM, cleanPreviewToken } from '@/lib/customDesign';
+import { CustomDesignProvider } from '@/lib/customDesignContext';
 
 const API_BASE = 'https://api.datamartgh.shop';
 
@@ -53,7 +55,7 @@ function FooterMark({ store, size = 34 }) {
   );
 }
 
-export default function StoreLayoutClient({ children, initialStore }) {
+export default function StoreLayoutClient({ children, initialStore, initialCustomDesign = null }) {
   const params = useParams();
   const pathname = usePathname();
 
@@ -75,6 +77,19 @@ export default function StoreLayoutClient({ children, initialStore }) {
   const [previewDesign, setPreviewDesign] = useState(null);
   const [themeOverride, setThemeOverride] = useState(null); // session-only, for forced/preview themes
   const [previewToast, setPreviewToast] = useState(false);
+
+  /* Shared custom design (website builder). The published one comes from the
+     server; in the builder's preview (?sitePreview=<token>) the page fetches
+     the DRAFT and hands it up through CustomDesignProvider. */
+  const [previewCustom, setPreviewCustomState] = useState(null);
+  const setPreviewCustom = useCallback((d) => setPreviewCustomState(d || null), []);
+  const [sitePreviewToken, setSitePreviewToken] = useState(null);
+  useEffect(() => {
+    const tok = cleanPreviewToken(new URLSearchParams(window.location.search).get(SITE_PREVIEW_PARAM));
+    if (tok) { setSitePreviewToken(tok); setIsPreview(true); }
+  }, []);
+  const custom = previewCustom || initialCustomDesign;
+  const customTheme = useMemo(() => customThemeDesign(custom), [custom]);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get(PREVIEW_PARAM) !== '1') return undefined;
@@ -101,6 +116,24 @@ export default function StoreLayoutClient({ children, initialStore }) {
     const stop = (e) => {
       const link = e.type === 'click' ? e.target.closest?.('a[href]') : null;
       if (e.type === 'click' && !link) return;
+      // Builder preview: the custom pages (home, /p/*) stay browsable inside the
+      // preview (token carried along); everything else — buying, checkers,
+      // orders, outside links — is stopped, so nobody can buy from the editor.
+      if (e.type === 'click' && sitePreviewToken) {
+        try {
+          const url = new URL(link.getAttribute('href'), window.location.href);
+          const base = `/shop/${params.storeSlug}`;
+          const p = url.pathname.replace(/\/+$/, '');
+          const isCustomPage = url.origin === window.location.origin && (p === base || p.startsWith(`${base}/p/`));
+          if (isCustomPage) {
+            e.preventDefault();
+            e.stopPropagation();
+            url.searchParams.set(SITE_PREVIEW_PARAM, sitePreviewToken);
+            window.location.assign(url.toString());
+            return;
+          }
+        } catch { /* fall through to the toast */ }
+      }
       e.preventDefault();
       e.stopPropagation();
       setPreviewToast(true);
@@ -114,7 +147,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
       document.removeEventListener('click', stop, true);
       document.removeEventListener('submit', stop, true);
     };
-  }, [isPreview]);
+  }, [isPreview, sitePreviewToken, params.storeSlug]);
 
   useEffect(() => {
     const saved = localStorage.getItem('shopDarkMode');
@@ -122,7 +155,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
     setDarkMode(saved ? saved === 'true' : prefersDark);
   }, []);
 
-  const resolved = useMemo(() => resolveDesign(store, previewDesign), [store, previewDesign]);
+  const resolved = useMemo(() => resolveDesign(store, previewDesign || customTheme), [store, previewDesign, customTheme]);
   const { design, legacy } = resolved;
   // 'dark' designs force the dark theme; in preview a 'light' design shows light.
   // Legacy stores and 'light' designs keep the visitor's own choice, as before.
@@ -232,10 +265,17 @@ export default function StoreLayoutClient({ children, initialStore }) {
   const whatsappGroup = store.whatsappSettings?.groupLink || designSettings?.whatsappGroupLink;
   const isOwnerArea = pathname.startsWith(`/shop/${params.storeSlug}/owner`);
   const isHome = isActive('');
+  // Custom design: its menu + logo; the classic SiteHero isn't on a custom home,
+  // so the nav must not sit transparently over content it wasn't designed for.
+  const links = customNavLinks(custom, params.storeSlug) || navLinksFor(store);
+  const shown = custom?.logoUrl ? { ...store, storeLogo: custom.logoUrl } : store;
+  const customHome = isHome && !!custom?.pages?.['/'];
 
   return (
+    <CustomDesignProvider value={{ custom, setPreviewCustom }}>
     <StoreDesignProvider value={{ design, legacy, preview: isPreview }}>
     <div style={brandStyle} {...brandAttrs} className="flex min-h-screen flex-col overflow-x-hidden bg-canvas">
+      {custom?.cssUrl && <link rel="stylesheet" href={custom.cssUrl} precedence="default" />}
       {fontLink && (
         <>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -244,11 +284,11 @@ export default function StoreLayoutClient({ children, initialStore }) {
         </>
       )}
       <SiteNav
-        store={store}
+        store={shown}
         storeSlug={params.storeSlug}
-        navLinks={navLinksFor(store)}
+        navLinks={links}
         isActive={isActive}
-        overHero={isHome}
+        overHero={isHome && !customHome}
         darkMode={effectiveDark}
         onToggleTheme={toggleTheme}
         navStyle={design.navStyle}
@@ -287,7 +327,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
           <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-4">
             <div className="md:col-span-2">
               <div className="mb-3 flex items-center gap-2.5">
-                <FooterMark store={store} />
+                <FooterMark store={shown} />
                 <span className="text-[16px] font-semibold tracking-[-0.02em] text-ink">
                   {store.storeName}
                 </span>
@@ -318,7 +358,7 @@ export default function StoreLayoutClient({ children, initialStore }) {
             <div>
               <p className="eyebrow mb-3">Shop</p>
               <div className="space-y-2">
-                {navLinksFor(store).map((link) => (
+                {links.map((link) => (
                   <Link
                     key={link.path}
                     href={`/shop/${params.storeSlug}${link.path}`}
@@ -426,5 +466,6 @@ export default function StoreLayoutClient({ children, initialStore }) {
       )}
     </div>
     </StoreDesignProvider>
+    </CustomDesignProvider>
   );
 }
