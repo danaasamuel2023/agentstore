@@ -137,12 +137,13 @@ export default function SiteNav({
   const navVars = light
     ? { '--nav-bg': 'var(--paper)', '--nav-fg': 'var(--ink)', '--nav-cta-bg': 'var(--brand)', '--nav-cta-fg': 'var(--brand-ink)' }
     : { '--nav-bg': 'var(--brand)', '--nav-fg': 'var(--brand-ink)', '--nav-cta-bg': 'var(--brand-ink)', '--nav-cta-fg': 'var(--brand)' };
-  // Ink text is only readable on the paper bar itself, never over a hero.
-  const clear = overHero && !solid && !light;
   /* Start solid. Transparent-with-light-text is only ever safe when the hero is
      provably behind the bar, so that is the state we have to earn, not the one
      we default to — a wrong guess here paints white text on white page. */
   const [solid, setSolid] = useState(true);
+  // Transparent only over the hero, and never for the paper bar: ink text is
+  // only readable on the paper itself.
+  const clear = overHero && !solid && !light;
   const [menuOpen, setMenuOpen] = useState(false);
 
   /**
