@@ -396,6 +396,34 @@ html { scroll-behavior: smooth; }
   border: 1.5px solid var(--brand-ink) !important;
 }
 
+/* Buttons: soft — a pale tint of the brand. */
+[data-buttons="soft"] .btn-brand {
+  background: color-mix(in srgb, var(--brand) 16%, var(--paper));
+  color: var(--brand);
+  border-color: transparent;
+}
+[data-mode="dark"][data-buttons="soft"] .btn-brand,
+.dark[data-buttons="soft"] .btn-brand,
+.dark [data-buttons="soft"] .btn-brand { background: color-mix(in srgb, var(--brand) 40%, var(--paper)); color: var(--ink); }
+[data-buttons="soft"] .btn-brand:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 26%, var(--paper)); }
+
+/* Buttons: gradient — the brand fading into the accent. */
+[data-buttons="gradient"] .btn-brand,
+[data-buttons="gradient"] .btn-brand:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 55%, var(--accent, #000)));
+  border-color: transparent;
+}
+[data-buttons="gradient"] .btn-brand:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* Buttons: raised — a hard shadow underneath that presses down. */
+[data-buttons="raised"] .btn-brand { box-shadow: 0 4px 0 color-mix(in srgb, var(--brand) 62%, #000); transform: translateY(-2px); }
+[data-buttons="raised"] .btn-brand:active:not(:disabled) { box-shadow: 0 1px 0 color-mix(in srgb, var(--brand) 62%, #000); transform: translateY(1px); }
+[data-buttons="raised"] .dm-cta-inv { box-shadow: 0 4px 0 color-mix(in srgb, var(--brand-ink) 45%, var(--brand)); transform: translateY(-2px); }
+
+/* Buttons: glow — a soft coloured glow. */
+[data-buttons="glow"] .btn-brand { box-shadow: 0 10px 26px -8px color-mix(in srgb, var(--brand) 70%, transparent); }
+[data-buttons="glow"] .dm-cta-inv { box-shadow: 0 10px 26px -8px color-mix(in srgb, var(--brand-ink) 55%, transparent); }
+
 /* FAQ accordion (native <details>). */
 .dm-faq summary { list-style: none; cursor: pointer; }
 .dm-faq summary::-webkit-details-marker { display: none; }
