@@ -6,7 +6,10 @@
  *
  * Exports (products/page.jsx depends on all three):
  *   - useDeliveryEta()       -> { eta, fast, standard, lastDelivered, scanner, loading }
- *   - <DeliveryEtaBanner />  -> full strip for above the price list
+ *   - <DeliveryEtaBanner />  -> the full widget for above the price list. It has
+ *                               four looks (strip / card / pill / banner); a
+ *                               shared custom design picks one, every other
+ *                               store keeps the strip.
  *   - <DeliveryEtaInline />  -> one-liner for inside the confirm modal
  *
  * TWO LANES, like the main site's mtnup2u page. The endpoint reports two
@@ -43,7 +46,14 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Zap, Clock, Rocket } from 'lucide-react';
+import { Zap, Clock, Rocket, ChevronDown } from 'lucide-react';
+import { useCustomDesign } from '@/lib/customDesignContext';
+
+/** The looks DeliveryEtaBanner can take. `strip` is the original. */
+export const ETA_STYLES = ['strip', 'card', 'pill', 'banner'];
+
+/** Under this many minutes the lane serving the next order is "on fire". */
+const HOT_MINS = 20;
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 const POLL_MS = 30_000;
@@ -184,8 +194,21 @@ export function useDeliveryEta() {
     ? { tone: 'brand', short: 'Express delivery active', msg: express.wait ? `Recent express orders around ${express.wait}.` : 'Bundles landing in minutes.' }
     : computeEta(fast || standard || data?.lastDelivered);
 
+  /* "On fire": the lane that takes the NEXT order turned its last one around in
+     under 20 minutes. A standard-only queue also has to have delivered recently
+     — a quick last order followed by a long silence is not fast delivery. */
+  const leadLane = express || fast || standard;
+  const leadMins = leadLane ? minutesBetween(leadLane.placedAt, leadLane.deliveredAt) : null;
+  const sinceLast = !express && !fast && standard
+    ? Math.round((Date.now() - new Date(standard.deliveredAt).getTime()) / 60000)
+    : 0;
+  const hot = !!eta && (eta.tone === 'ok' || eta.tone === 'brand')
+    && leadMins != null && Math.max(leadMins, sinceLast) < HOT_MINS;
+
   return {
     eta,
+    hot,
+    lead: leadLane ? { wait: leadLane.wait, label: express ? 'Express' : fast ? 'Fast lane' : 'Standard queue' } : null,
     express,
     fast,
     standard,
@@ -225,13 +248,144 @@ function LaneRow({ icon: Icon, label, wait, order, tone, sentOnly }) {
   );
 }
 
-export function DeliveryEtaBanner() {
-  const { eta, express, fast, standard, scanner } = useDeliveryEta();
+function Fire() {
+  return <span className="eta-fire" role="img" aria-label="on fire">🔥</span>;
+}
+
+/* The real orders behind the headline — shared by every look. */
+function Lanes({ express, fast, standard, tone, className = '' }) {
+  if (!express && !fast && !standard) return null;
+  const edge = `color-mix(in srgb, var(--${tone}) 22%, transparent)`;
+  return (
+    <div className={`divide-y overflow-hidden rounded-md border ${className}`} style={{ borderColor: edge, borderTopColor: edge }}>
+      <LaneRow icon={Rocket} label="Express" wait={express?.wait} order={express} tone="brand" />
+      <LaneRow icon={Zap} label="Fast lane" wait={fast?.wait} order={fast} tone="ok" />
+      <LaneRow icon={Clock} label="Standard queue" wait={standard?.wait} order={standard} sentOnly={standard?.sentOnly} />
+    </div>
+  );
+}
+
+function Checking({ scanner, className = '' }) {
+  if (!scanner?.isRunning || !scanner.currentTrackingId) return null;
+  return (
+    <p className={`flex items-center gap-2 text-[12px] text-ink-3 ${className}`}>
+      <span className="pulse-dot" style={{ background: 'var(--brand)' }} />
+      <span>Checking now · <span className="num font-semibold text-ink-2">#{scanner.currentTrackingId}</span></span>
+    </p>
+  );
+}
+
+function DetailsToggle({ open, onClick, color }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      className="inline-flex flex-none items-center gap-1 text-[12.5px] font-semibold"
+      style={{ color }}
+    >
+      {open ? 'Hide' : 'Details'}
+      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+    </button>
+  );
+}
+
+/**
+ * @param variant  one of ETA_STYLES. Omitted → the shared custom design's choice
+ *                 (theme.etaStyle), else the original strip.
+ */
+export function DeliveryEtaBanner({ variant }) {
+  const d = useDeliveryEta();
+  const { custom } = useCustomDesign();
+  const [open, setOpen] = useState(false);
+  const { eta, hot, lead, express, fast, standard, scanner } = d;
   if (!eta) return null;
 
-  /* Tinted in the status tone rather than sitting on plain paper. On a page of
-     white cards this is the one thing that should catch the eye first, and the
-     colour says what the words say before anyone reads them. */
+  const wanted = variant || custom?.theme?.etaStyle;
+  const look = ETA_STYLES.includes(wanted) ? wanted : 'strip';
+  const tone = `var(--${eta.tone})`;
+  const hasLanes = !!(express || fast || standard);
+
+  /* card — the wait time as the one big number, the proof one tap away. */
+  if (look === 'card') {
+    return (
+      <section
+        className="rounded-xl border p-4 sm:p-5"
+        aria-live="polite"
+        style={{ background: 'var(--paper)', borderColor: 'color-mix(in srgb, var(--ink) 12%, transparent)', boxShadow: 'var(--lift-2)' }}
+      >
+        <div className="flex items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">
+              <span className="pulse-dot" style={{ background: tone }} />
+              Delivery right now
+            </p>
+            <p className="num mt-1.5 text-[30px] font-bold leading-none tracking-[-0.03em] text-ink">
+              {lead?.wait ? `~${lead.wait}` : eta.short} {hot && <Fire />}
+            </p>
+            <p className="mt-2 text-[13px]">
+              <span className="font-semibold" style={{ color: tone }}>{eta.short}.</span>{' '}
+              <span className="text-ink-3">{eta.msg}</span>
+            </p>
+          </div>
+          {hasLanes && <DetailsToggle open={open} onClick={() => setOpen((v) => !v)} color={tone} />}
+        </div>
+        {open && <Lanes express={express} fast={fast} standard={standard} tone={eta.tone} className="mt-3.5" />}
+        {open && <Checking scanner={scanner} className="mt-2" />}
+      </section>
+    );
+  }
+
+  /* pill — one small rounded badge; tap it for the real orders. */
+  if (look === 'pill') {
+    return (
+      <section aria-live="polite">
+        <button
+          type="button"
+          onClick={() => hasLanes && setOpen((v) => !v)}
+          aria-expanded={open}
+          className="inline-flex max-w-full items-center gap-2 rounded-full border py-2 pl-3.5 pr-3 text-[13px]"
+          style={{ background: `var(--${eta.tone}-soft)`, borderColor: `color-mix(in srgb, ${tone} 34%, transparent)` }}
+        >
+          <span className="pulse-dot" style={{ background: tone }} />
+          <span className="truncate font-semibold" style={{ color: tone }}>{eta.short}</span>
+          {lead?.wait && <span className="num flex-none font-bold text-ink">~{lead.wait}</span>}
+          {hot && <Fire />}
+          {hasLanes && <ChevronDown className={`h-3.5 w-3.5 flex-none text-ink-3 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />}
+        </button>
+        {open && <Lanes express={express} fast={fast} standard={standard} tone={eta.tone} className="mt-2.5" />}
+        {open && <Checking scanner={scanner} className="mt-2" />}
+      </section>
+    );
+  }
+
+  /* banner — a bar in the shop's own colour. The status dot keeps its tone so a
+     slow day still reads as slow on a brand-coloured bar. */
+  if (look === 'banner') {
+    return (
+      <section className="overflow-hidden rounded-lg" aria-live="polite" style={{ border: '1px solid color-mix(in srgb, var(--brand) 30%, transparent)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 sm:px-5" style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}>
+          <span className="pulse-dot" style={{ background: eta.tone === 'brand' ? 'var(--brand-ink)' : tone, boxShadow: '0 0 0 2px var(--brand-ink)' }} />
+          <p className="min-w-0 flex-1 text-[14px]">
+            <span className="font-bold">{eta.short}</span>
+            {lead?.wait && <span className="num font-bold"> · ~{lead.wait}</span>} {hot && <Fire />}
+            <span className="ml-1.5 hidden opacity-80 sm:inline">{eta.msg}</span>
+          </p>
+          {hasLanes && <DetailsToggle open={open} onClick={() => setOpen((v) => !v)} color="var(--brand-ink)" />}
+        </div>
+        {open && (
+          <div className="p-3" style={{ background: 'var(--paper)' }}>
+            <Lanes express={express} fast={fast} standard={standard} tone={eta.tone} />
+            <Checking scanner={scanner} className="mt-2" />
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  /* strip (the original). Tinted in the status tone rather than sitting on plain
+     paper. On a page of white cards this is the one thing that should catch the
+     eye first, and the colour says what the words say before anyone reads them. */
   return (
     <section
       className="rounded-lg border px-4 py-3 sm:px-5"
@@ -242,10 +396,11 @@ export function DeliveryEtaBanner() {
       }}
     >
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px]">
-        <span className="pulse-dot" style={{ background: `var(--${eta.tone})` }} />
-        <span className="font-semibold" style={{ color: `var(--${eta.tone})` }}>
+        <span className="pulse-dot" style={{ background: tone }} />
+        <span className="font-semibold" style={{ color: tone }}>
           {eta.short}
         </span>
+        {hot && <Fire />}
         <span className="text-ink-3">{eta.msg}</span>
       </p>
 
@@ -253,32 +408,14 @@ export function DeliveryEtaBanner() {
           the status above says, these are REAL orders that really landed, with
           their ids and their clock times — the difference between "they say it
           is slow" and "it is slow AND still moving". */}
-      {(express || fast || standard) && (
-        <div
-          className="mt-2.5 divide-y overflow-hidden rounded-md border"
-          style={{
-            borderColor: `color-mix(in srgb, var(--${eta.tone}) 22%, transparent)`,
-            borderTopColor: `color-mix(in srgb, var(--${eta.tone}) 22%, transparent)`,
-          }}
-        >
-          <LaneRow icon={Rocket} label="Express" wait={express?.wait} order={express} tone="brand" />
-          <LaneRow icon={Zap} label="Fast lane" wait={fast?.wait} order={fast} tone="ok" />
-          <LaneRow icon={Clock} label="Standard queue" wait={standard?.wait} order={standard} sentOnly={standard?.sentOnly} />
-        </div>
-      )}
-
-      {scanner?.isRunning && scanner.currentTrackingId && (
-        <p className="mt-2 flex items-center gap-2 text-[12px] text-ink-3">
-          <span className="pulse-dot" style={{ background: 'var(--brand)' }} />
-          <span>Checking now · <span className="num font-semibold text-ink-2">#{scanner.currentTrackingId}</span></span>
-        </p>
-      )}
+      <Lanes express={express} fast={fast} standard={standard} tone={eta.tone} className="mt-2.5" />
+      <Checking scanner={scanner} className="mt-2" />
     </section>
   );
 }
 
 export function DeliveryEtaInline() {
-  const { eta, express, fast } = useDeliveryEta();
+  const { eta, hot, express, fast } = useDeliveryEta();
 
   if (!eta) {
     return <p className="text-center text-xs text-ink-4">Usually 10 minutes to 24 hours</p>;
@@ -299,6 +436,7 @@ export function DeliveryEtaInline() {
       {lead && (
         <span className="num font-semibold" style={{ color: `var(--${lead.tone})` }}>{lead.label} · {lead.wait}</span>
       )}
+      {hot && <Fire />}
     </p>
   );
 }
