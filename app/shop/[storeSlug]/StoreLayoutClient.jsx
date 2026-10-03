@@ -27,7 +27,7 @@ import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
 import SiteNav, { navLinksFor } from './components/SiteNav';
 import VerifyNumberModal from './components/VerifyNumberModal';
-import { customThemeDesign, customNavLinks, SITE_PREVIEW_PARAM, cleanPreviewToken } from '@/lib/customDesign';
+import { customThemeDesign, customNavLinks, customNavStyle, SITE_PREVIEW_PARAM, cleanPreviewToken } from '@/lib/customDesign';
 import { CustomDesignProvider } from '@/lib/customDesignContext';
 
 const API_BASE = 'https://api.datamartgh.shop';
@@ -291,7 +291,7 @@ export default function StoreLayoutClient({ children, initialStore, initialCusto
         overHero={isHome && !customHome}
         darkMode={effectiveDark}
         onToggleTheme={toggleTheme}
-        navStyle={design.navStyle}
+        navStyle={customNavStyle(custom) || design.navStyle}
         onCheckNumber={() => setShowVerify(true)}
         subAgentEnabled={subAgentEnabled}
       />

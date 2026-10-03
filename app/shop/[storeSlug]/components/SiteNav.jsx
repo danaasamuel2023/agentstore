@@ -86,7 +86,7 @@ function Wordmark({ store, size = 34 }) {
           style={{
             width: size,
             height: size,
-            boxShadow: '0 0 0 1px color-mix(in srgb, var(--brand-ink) 30%, transparent)',
+            boxShadow: '0 0 0 1px color-mix(in srgb, var(--nav-fg) 30%, transparent)',
           }}
         />
       ) : (
@@ -96,8 +96,8 @@ function Wordmark({ store, size = 34 }) {
             width: size,
             height: size,
             fontSize: size * 0.44,
-            background: 'var(--brand-ink)',
-            color: 'var(--brand)',
+            background: 'var(--nav-cta-bg)',
+            color: 'var(--nav-cta-fg)',
           }}
           aria-hidden
         >
@@ -106,7 +106,7 @@ function Wordmark({ store, size = 34 }) {
       )}
       <span
         className="truncate text-[17px] font-bold tracking-[-0.025em]"
-        style={{ color: 'var(--brand-ink)' }}
+        style={{ color: 'var(--nav-fg)' }}
       >
         {store?.storeName || 'Data shop'}
       </span>
@@ -124,10 +124,21 @@ export default function SiteNav({
   onToggleTheme,
   onCheckNumber,
   subAgentEnabled,
-  navStyle = 'default',   // 'default' | 'centered' | 'minimal' — from the store design
+  navStyle = 'default',   // 'default' | 'centered' | 'minimal' | 'light' | 'floating' — from the store design
 }) {
   const centered = navStyle === 'centered';
   const minimal = navStyle === 'minimal';
+  // 'light' and 'floating' come from a shared custom design (website builder):
+  // a paper-coloured bar with ink text, the brand colour kept for the button.
+  const floating = navStyle === 'floating';
+  const light = navStyle === 'light' || floating;
+  /* Every colour on the bar and in the menu panel reads these four, so a style
+     is one palette swap and the surface and its text can never disagree. */
+  const navVars = light
+    ? { '--nav-bg': 'var(--paper)', '--nav-fg': 'var(--ink)', '--nav-cta-bg': 'var(--brand)', '--nav-cta-fg': 'var(--brand-ink)' }
+    : { '--nav-bg': 'var(--brand)', '--nav-fg': 'var(--brand-ink)', '--nav-cta-bg': 'var(--brand-ink)', '--nav-cta-fg': 'var(--brand)' };
+  // Ink text is only readable on the paper bar itself, never over a hero.
+  const clear = overHero && !solid && !light;
   /* Start solid. Transparent-with-light-text is only ever safe when the hero is
      provably behind the bar, so that is the state we have to earn, not the one
      we default to — a wrong guess here paints white text on white page. */
@@ -203,17 +214,22 @@ export default function SiteNav({
            which put white text on a near-white bar for a fifth of a second on
            every scroll past the hero. Border and shadow can fade; the surface
            the text sits on has to change at the same instant the text does. */
-        className="fixed inset-x-0 top-0 z-50 transition-[border-color,box-shadow] duration-200"
+        className={
+          floating
+            ? 'fixed inset-x-3 top-2 z-50 mx-auto max-w-6xl rounded-full transition-[border-color,box-shadow] duration-200'
+            : 'fixed inset-x-0 top-0 z-50 transition-[border-color,box-shadow] duration-200'
+        }
         style={{
+          ...navVars,
           // Over the hero it is transparent and the hero's own colour shows
           // through; past the hero it paints that same colour itself. Either
           // way the bar is the shop's colour, so the contents never need to
           // change — and there is no white seam between bar and hero.
-          background: overHero && !solid ? 'transparent' : 'var(--brand)',
-          borderBottom: `1px solid ${
-            solid ? 'color-mix(in srgb, var(--brand-ink) 16%, transparent)' : 'transparent'
-          }`,
-          boxShadow: solid ? 'var(--lift-2)' : 'none',
+          background: clear ? 'transparent' : 'var(--nav-bg)',
+          ...(floating
+            ? { border: '1px solid color-mix(in srgb, var(--nav-fg) 12%, transparent)' }
+            : { borderBottom: `1px solid ${clear ? 'transparent' : 'color-mix(in srgb, var(--nav-fg) 16%, transparent)'}` }),
+          boxShadow: clear ? 'none' : 'var(--lift-2)',
         }}
       >
         <div
@@ -245,7 +261,7 @@ export default function SiteNav({
                   href={`/shop/${storeSlug}${link.path}`}
                   className="relative flex items-center gap-1.5 px-3 py-2 text-[14px] font-medium transition-opacity hover:opacity-100"
                   style={{
-                    color: 'var(--brand-ink)',
+                    color: 'var(--nav-fg)',
                     opacity: active ? 1 : 0.85,
                   }}
                 >
@@ -254,7 +270,7 @@ export default function SiteNav({
                   {active && (
                     <span
                       className="absolute inset-x-3 -bottom-0.5 h-[2px] rounded-full"
-                      style={{ background: 'var(--brand-ink)' }}
+                      style={{ background: 'var(--nav-fg)' }}
                     />
                   )}
                 </Link>
@@ -273,8 +289,8 @@ export default function SiteNav({
                 href={`/shop/${storeSlug}/join`}
                 className="ml-1.5 inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13.5px] font-medium transition-opacity hover:opacity-80"
                 style={{
-                  border: '1px solid color-mix(in srgb, var(--brand-ink) 34%, transparent)',
-                  color: 'var(--brand-ink)',
+                  border: '1px solid color-mix(in srgb, var(--nav-fg) 34%, transparent)',
+                  color: 'var(--nav-fg)',
                 }}
               >
                 <Users className="h-3.5 w-3.5" />
@@ -292,7 +308,7 @@ export default function SiteNav({
               type="button"
               onClick={onToggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition-opacity hover:opacity-70"
-              style={{ color: 'var(--brand-ink)' }}
+              style={{ color: 'var(--nav-fg)' }}
               aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -301,7 +317,7 @@ export default function SiteNav({
             <Link
               href={`/shop/${storeSlug}/products`}
               className="dm-cta dm-cta-inv hidden h-10 items-center gap-2 rounded-lg px-4 text-[14px] font-semibold transition-opacity hover:opacity-90 sm:inline-flex"
-              style={{ background: 'var(--brand-ink)', color: 'var(--brand)' }}
+              style={{ background: 'var(--nav-cta-bg)', color: 'var(--nav-cta-fg)' }}
             >
               Buy data
               <ArrowRight className="h-4 w-4" />
@@ -311,7 +327,7 @@ export default function SiteNav({
               type="button"
               onClick={() => setMenuOpen(true)}
               className={`flex h-10 w-10 items-center justify-center rounded-lg ${minimal ? '' : 'md:hidden'}`}
-              style={{ color: 'var(--brand-ink)' }}
+              style={{ color: 'var(--nav-fg)' }}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
@@ -324,7 +340,7 @@ export default function SiteNav({
       {menuOpen && (
         <div
           className={`animate-fadeIn fixed inset-0 z-[60] flex flex-col ${minimal ? '' : 'md:hidden'}`}
-          style={{ background: 'var(--brand)', color: 'var(--brand-ink)' }}
+          style={{ ...navVars, background: 'var(--nav-bg)', color: 'var(--nav-fg)' }}
         >
           <div className="flex h-16 items-center justify-between px-4">
             <Wordmark store={store} />
@@ -332,7 +348,7 @@ export default function SiteNav({
               type="button"
               onClick={() => setMenuOpen(false)}
               className="flex h-10 w-10 items-center justify-center rounded-lg"
-              style={{ color: 'var(--brand-ink)' }}
+              style={{ color: 'var(--nav-fg)' }}
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />
@@ -347,7 +363,7 @@ export default function SiteNav({
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-3.5 py-3.5 text-[26px] font-bold tracking-[-0.025em]"
                 style={{
-                  color: 'var(--brand-ink)',
+                  color: 'var(--nav-fg)',
                   opacity: isActive(link.path) ? 1 : 0.72,
                 }}
               >
@@ -361,7 +377,7 @@ export default function SiteNav({
                 href={`/shop/${storeSlug}/join`}
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-3.5 py-3.5 text-[26px] font-bold tracking-[-0.025em]"
-                style={{ color: 'var(--brand-ink)', opacity: 0.72 }}
+                style={{ color: 'var(--nav-fg)', opacity: 0.72 }}
               >
                 <Users className="h-6 w-6 flex-none" strokeWidth={2.2} />
                 Sell with us
@@ -370,7 +386,7 @@ export default function SiteNav({
 
             <div
               className="mt-7 space-y-3 border-t pt-7"
-              style={{ borderColor: 'color-mix(in srgb, var(--brand-ink) 22%, transparent)' }}
+              style={{ borderColor: 'color-mix(in srgb, var(--nav-fg) 22%, transparent)' }}
             >
               {onCheckNumber && (
                 <button
@@ -380,7 +396,7 @@ export default function SiteNav({
                     onCheckNumber();
                   }}
                   className="flex items-center gap-2.5 text-[15px] font-medium"
-                  style={{ color: 'var(--brand-ink)', opacity: 0.85 }}
+                  style={{ color: 'var(--nav-fg)', opacity: 0.85 }}
                 >
                   <Search className="h-4 w-4" />
                   Check a number
@@ -391,7 +407,7 @@ export default function SiteNav({
                 <a
                   href={`tel:${store.contactInfo.phoneNumber}`}
                   className="num flex items-center gap-2.5 text-[15px] font-medium"
-                  style={{ color: 'var(--brand-ink)', opacity: 0.85 }}
+                  style={{ color: 'var(--nav-fg)', opacity: 0.85 }}
                 >
                   <Phone className="h-4 w-4" />
                   {store.contactInfo.phoneNumber}
@@ -403,7 +419,7 @@ export default function SiteNav({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2.5 text-[15px] font-medium"
-                  style={{ color: 'var(--brand-ink)', opacity: 0.85 }}
+                  style={{ color: 'var(--nav-fg)', opacity: 0.85 }}
                 >
                   <WhatsAppIcon className="h-4 w-4" />
                   WhatsApp
@@ -417,7 +433,7 @@ export default function SiteNav({
               href={`/shop/${storeSlug}/products`}
               onClick={() => setMenuOpen(false)}
               className="dm-cta dm-cta-inv flex h-12 w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold"
-              style={{ background: 'var(--brand-ink)', color: 'var(--brand)' }}
+              style={{ background: 'var(--nav-cta-bg)', color: 'var(--nav-cta-fg)' }}
             >
               Buy data
               <ArrowRight className="h-4 w-4" />
