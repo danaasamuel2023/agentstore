@@ -273,7 +273,7 @@ export default function StoreLayoutClient({ children, initialStore, initialCusto
 
   return (
     <CustomDesignProvider value={{ custom, setPreviewCustom }}>
-    <StoreDesignProvider value={{ design, legacy, preview: isPreview }}>
+    <StoreDesignProvider value={{ design, legacy, preview: isPreview, hideEta: !!store?.customization?.hideDeliveryEta }}>
     <div style={brandStyle} {...brandAttrs} className="flex min-h-screen flex-col overflow-x-hidden bg-canvas">
       {custom?.cssUrl && <link rel="stylesheet" href={custom.cssUrl} precedence="default" />}
       {fontLink && (

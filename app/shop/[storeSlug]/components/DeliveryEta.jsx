@@ -11,6 +11,14 @@
  *                               shared custom design picks one, every other
  *                               store keeps the strip.
  *   - <DeliveryEtaInline />  -> one-liner for inside the confirm modal
+ *   - <EtaVisible>           -> wraps the box AROUND a widget, so a store that
+ *                               hides delivery time is not left with an empty
+ *                               "Estimated delivery" frame
+ *
+ * A store owner can switch all of this off (Settings -> "Hide delivery time
+ * from my customers", customization.hideDeliveryEta). Both widgets then render
+ * nothing — including the "usually 10 minutes to 24 hours" fallback, which is
+ * a delivery time too.
  *
  * TWO LANES, like the main site's mtnup2u page. The endpoint reports two
  * frontiers and this used to read only one of them -- `lastDelivered`, which is
@@ -48,6 +56,13 @@
 import { useEffect, useState } from 'react';
 import { Zap, Clock, Rocket, ChevronDown } from 'lucide-react';
 import { useCustomDesign } from '@/lib/customDesignContext';
+import { useStoreDesign } from '@/lib/storeDesign';
+
+/** Renders its children unless this store hides delivery time. */
+export function EtaVisible({ children }) {
+  const { hideEta } = useStoreDesign();
+  return hideEta ? null : children;
+}
 
 /** The looks DeliveryEtaBanner can take. `strip` is the original. */
 export const ETA_STYLES = ['strip', 'card', 'pill', 'banner'];
@@ -297,9 +312,10 @@ function DetailsToggle({ open, onClick, color }) {
 export function DeliveryEtaBanner({ variant }) {
   const d = useDeliveryEta();
   const { custom } = useCustomDesign();
+  const { hideEta } = useStoreDesign();
   const [open, setOpen] = useState(false);
   const { eta, hot, lead, express, fast, standard, scanner } = d;
-  if (!eta) return null;
+  if (hideEta || !eta) return null;
 
   const wanted = variant || custom?.theme?.etaStyle;
   const look = ETA_STYLES.includes(wanted) ? wanted : 'strip';
@@ -416,7 +432,9 @@ export function DeliveryEtaBanner({ variant }) {
 
 export function DeliveryEtaInline() {
   const { eta, hot, express, fast } = useDeliveryEta();
+  const { hideEta } = useStoreDesign();
 
+  if (hideEta) return null;
   if (!eta) {
     return <p className="text-center text-xs text-ink-4">Usually 10 minutes to 24 hours</p>;
   }

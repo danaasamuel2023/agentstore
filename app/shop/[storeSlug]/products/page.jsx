@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown } from 'lucide-react';
-import { DeliveryEtaBanner, DeliveryEtaInline } from '../components/DeliveryEta';
+import { DeliveryEtaBanner, DeliveryEtaInline, EtaVisible } from '../components/DeliveryEta';
 import VerifyNumberModal from '../components/VerifyNumberModal';
 import { MTNLogo, TelecelLogo, ATLogo } from '../components/NetworkLogo';
 
@@ -68,10 +68,12 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
           </div>
           
           {/* Delivery ETA — same logic as mtnup2u + /orders on DataMart */}
-          <div className="bg-sunken border border-hairline rounded-xl p-3 mb-3">
-            <p className="text-[10px] text-ink-4 uppercase font-semibold mb-1 text-center">Estimated Delivery</p>
-            <DeliveryEtaInline />
-          </div>
+          <EtaVisible>
+            <div className="bg-sunken border border-hairline rounded-xl p-3 mb-3">
+              <p className="text-[10px] text-ink-4 uppercase font-semibold mb-1 text-center">Estimated Delivery</p>
+              <DeliveryEtaInline />
+            </div>
+          </EtaVisible>
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6">
             <p className="text-amber-700 text-sm text-center">

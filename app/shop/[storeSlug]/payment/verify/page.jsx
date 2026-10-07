@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Clock, Loader2, Home, ShoppingBag, Copy, RefreshCw } from 'lucide-react';
 import WhatsAppIcon from '../../components/WhatsAppIcon';
-import { DeliveryEtaInline } from '../../components/DeliveryEta';
+import { DeliveryEtaInline, EtaVisible } from '../../components/DeliveryEta';
 
 import SpinWin from '../../components/SpinWin';
 
@@ -241,9 +241,11 @@ function PaymentVerifyContent() {
 
         {/* Measured, not "10-60 min". The old copy printed a guess as a fact on
             the one screen where a customer is most anxious about timing. */}
-        <div className="rounded-lg border border-hairline px-4 py-3">
-          <DeliveryEtaInline />
-        </div>
+        <EtaVisible>
+          <div className="rounded-lg border border-hairline px-4 py-3">
+            <DeliveryEtaInline />
+          </div>
+        </EtaVisible>
 
         <button type="button" onClick={recheckPayment} disabled={checking} className="btn btn-brand w-full">
           {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -318,9 +320,11 @@ function PaymentVerifyContent() {
         </dl>
 
         {!done && (
-          <div className="rounded-lg border border-hairline px-4 py-3">
-            <DeliveryEtaInline />
-          </div>
+          <EtaVisible>
+            <div className="rounded-lg border border-hairline px-4 py-3">
+              <DeliveryEtaInline />
+            </div>
+          </EtaVisible>
         )}
 
         <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
