@@ -150,7 +150,7 @@ export function BundleBuyModal({ storeSlug, product, onClose, hideEta = false })
       const idem = (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
         : `idem-${Date.now()}-${Math.random()}`;
-      const res = await storePortal.initiateGuest(
+      const res = await (isAuthed ? storePortal.initiateMomo : storePortal.initiateGuest)(
         storeSlug,
         {
           network: product.network,
