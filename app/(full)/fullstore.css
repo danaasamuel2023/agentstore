@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+/* =============================================================================
+ * DataBundle design tokens
+ *
+ * DataMart's brand colour is the warm MTN-adjacent yellow (#FFCC00 / #FBBF24).
+ * The Full Store inherits it but uses softer ink instead of pure black for
+ * the primary text colour — easier on the eyes for long catalog pages.
+ * ===========================================================================*/
+
+:root {
+  --background: #FBFBF8;
+  --surface: #FFFFFF;
+  --surface-2: #F7F6F1;
+  --ink: #0F0E0B;
+  --ink-soft: #2B2A24;
+  --ink-mute: #6B6A60;
+  --ink-faint: #9A998E;
+  --border: #ECEAE1;
+  --border-strong: #D8D5C7;
+
+  --brand: #FBBF24;       /* primary yellow */
+  --brand-deep: #F59E0B;  /* deeper accent */
+  --brand-glow: #FEF3C7;  /* soft tint backgrounds */
+
+  --success: #16A34A;
+  --danger: #DC2626;
+  --info: #2563EB;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-geist-sans, 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+/* Dark mode is class-driven — the inline boot script in app/layout.js sets
+   `html.dark` synchronously from localStorage (or falls back to the OS
+   preference) before React hydrates, so there's no white-flash on first
+   paint. Users can toggle it via the ThemeToggle in the top nav. */
+:root.dark {
+  --background: #0E0E0C;
+  --surface: #1A1A16;
+  --surface-2: #131310;
+  --ink: #F5F4EF;
+  --ink-soft: #E5E4DC;
+  --ink-mute: #A6A498;
+  --ink-faint: #6C6A5E;
+  --border: #2C2B26;
+  --border-strong: #3A382F;
+  --brand-glow: #2A2210;
+}
+
+/* Theme transitions — only on the colours, not on layout. Keeps the toggle
+   feeling smooth without lagging interactive widgets. */
+:root, :root.dark { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+body, .card, .card-soft, .btn, .input, .chip {
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body {
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+
+/* Subtle dotted background pattern used behind hero sections — keeps pages
+   from feeling like a flat AI-generated template. */
+.bg-dots {
+  background-image: radial-gradient(circle at 1px 1px, var(--border-strong) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Used for hero glow shapes. Soft, off-centre, never centred or symmetrical. */
+.brand-glow-1 {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--brand) 0%, transparent 60%);
+  opacity: 0.18;
+  filter: blur(40px);
+  pointer-events: none;
+}
+.brand-glow-2 {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--brand-deep) 0%, transparent 60%);
+  opacity: 0.12;
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+/* Sharp focus ring instead of the default browser blur halo. */
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Make scrollbars feel native rather than the chunky default. */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* Reusable UI primitives — avoid re-implementing button/card styles per page */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.08s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  border: none;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: var(--ink);
+  color: #FBBF24;
+}
+.btn-primary:hover { background: #1f1d17; }
+
+.btn-yellow {
+  background: var(--brand);
+  color: #000;
+}
+/* Keep the label black on hover — flipping to white-on-amber gave a
+   ~2:1 contrast ratio that read as invisible, especially on mobile
+   where a tap leaves the :hover state stuck until the next interaction. */
+.btn-yellow:hover { background: var(--brand-deep); color: #000; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--border-strong);
+}
+.btn-ghost:hover { background: var(--surface-2); color: var(--ink); }
+
+.btn-disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* .input lives in the components layer so per-element `pl-*` / `pr-*`
+   utilities override the default padding — without the layer, `.input`
+   would load after the utilities and clobber any custom left padding
+   (which is what was making the auth-form icons collide with placeholder
+   text). */
+@layer components {
+  .input {
+    width: 100%;
+    padding-top: 0.75rem;
+    padding-right: 0.9rem;
+    padding-bottom: 0.75rem;
+    padding-left: 0.9rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.95rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--ink);
+    background: var(--surface);
+  }
+  .input::placeholder { color: var(--ink-faint); }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+}
+
+.card-soft {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--ink-soft);
+}
+
+/* Subtle pulse for "live" indicators. Doesn't loop too fast — anything
+   under ~2s reads as "anxious" to users. */
+@keyframes brandPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;     transform: scale(1.4); }
+}
+.dot-pulse {
+  animation: brandPulse 2.4s ease-in-out infinite;
+}
+
+/* Reusable fade-in for entering elements. Short enough to feel snappy. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.35s ease both; }
+.fade-up-delay-1 { animation: fadeUp 0.35s 0.06s ease both; }
+.fade-up-delay-2 { animation: fadeUp 0.35s 0.12s ease both; }
+.fade-up-delay-3 { animation: fadeUp 0.35s 0.18s ease both; }
+
+/* Slow drift for hero background glows — gives the page a quiet "alive"
+   feeling without distracting from content. 28s loop is slow enough that
+   you only register it subconsciously. */
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(20px, -10px) scale(1.05); }
+  66%      { transform: translate(-15px, 12px) scale(0.97); }
+}
+.drift-slow  { animation: drift 28s ease-in-out infinite; }
+.drift-slower { animation: drift 42s ease-in-out infinite reverse; }
+
+/* Hand-drawn highlight marker behind hero words — yellow brand block, very
+   slightly skewed and over-sized so it reads as a real highlight pen stroke
+   rather than a CSS background. */
+.highlight-marker {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.highlight-marker::before {
+  content: '';
+  position: absolute;
+  inset: 18% -4% 8% -4%;
+  background: var(--brand);
+  border-radius: 6px;
+  transform: skewX(-3deg);
+  z-index: -1;
+}
+
+/* Bouncy "live" notification pop-in used on the hero floating cards. */
+@keyframes popIn {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.94); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+.pop-in { animation: popIn 0.5s 0.4s ease-out both; }
+.pop-in-late { animation: popIn 0.5s 0.7s ease-out both; }
+
+/* Pressable ring on quick-buy chips — a small lift on hover. */
+.lift-on-hover { transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.lift-on-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.12); }
+
+/* ============================================================================
+ * Lottie-feel animations
+ *
+ * Used by components/LottieScenes.jsx as fallbacks when /public/hero/*.jpg
+ * doesn't exist. Pure CSS keyframes on SVG groups so we don't pull in
+ * lottie-web. Motion vocabulary: bounces, floats, blinks, sparkles —
+ * staggered so multiple elements feel hand-animated rather than synced.
+ * ===========================================================================*/
+
+@keyframes lottieFloat {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-8px) rotate(1deg); }
+}
+.lottie-float        { animation: lottieFloat 3.2s ease-in-out infinite; }
+.lottie-float-slow   { animation: lottieFloat 4.0s ease-in-out 0.2s infinite; }
+.lottie-float-mid    { animation: lottieFloat 3.4s ease-in-out 0.5s infinite; }
+.lottie-float-fast   { animation: lottieFloat 2.6s ease-in-out 0.8s infinite; }
+
+@keyframes lottieSpin {
+  0%   { transform: rotateY(0deg) scale(1); }
+  50%  { transform: rotateY(180deg) scale(1.08); }
+  100% { transform: rotateY(360deg) scale(1); }
+}
+.lottie-spin       { animation: lottieSpin 3.6s ease-in-out infinite; transform-style: preserve-3d; }
+.lottie-spin-delay { animation-delay: 1.2s; }
+
+@keyframes lottieBob {
+  0%, 100% { transform: translateY(0) rotate(-0.5deg); }
+  50%      { transform: translateY(-3px) rotate(0.5deg); }
+}
+.lottie-bob { animation: lottieBob 3.6s ease-in-out infinite; }
+
+@keyframes lottieTilt {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(3deg); }
+}
+.lottie-tilt { animation: lottieTilt 4.2s ease-in-out infinite; }
+
+@keyframes lottiePop {
+  0%, 20% { opacity: 0; transform: scale(0.4) translateY(8px); }
+  35%     { opacity: 1; transform: scale(1.1) translateY(0); }
+  50%     { transform: scale(1) translateY(0); }
+  90%     { opacity: 1; }
+  100%    { opacity: 0; transform: scale(0.95) translateY(-4px); }
+}
+.lottie-pop { animation: lottiePop 3.6s ease-out infinite; }
+
+@keyframes lottieBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%, 98%      { transform: scaleY(0.1); }
+}
+.lottie-blink { animation: lottieBlink 4.8s ease-in-out infinite; transform-origin: center; }
+
+@keyframes lottieSparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1.2) rotate(180deg); }
+}
+.lottie-sparkle    { animation: lottieSparkle 2.4s ease-in-out infinite; transform-origin: center; }
+.lottie-sparkle-d1 { animation-delay: 0.6s; }
+.lottie-sparkle-d2 { animation-delay: 1.2s; }
+
+/* Respect users who'd rather not see things move. */
+@media (prefers-reduced-motion: reduce) {
+  .lottie-float, .lottie-float-slow, .lottie-float-mid, .lottie-float-fast,
+  .lottie-spin, .lottie-spin-delay, .lottie-bob, .lottie-tilt,
+  .lottie-pop, .lottie-blink, .lottie-sparkle, .lottie-sparkle-d1, .lottie-sparkle-d2,
+  .drift-slow, .drift-slower, .dot-pulse, .pop-in, .pop-in-late {
+    animation: none !important;
+  }
+}
