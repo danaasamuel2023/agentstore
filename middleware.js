@@ -46,6 +46,15 @@ export async function middleware(request) {
     full = (setSite || request.cookies.get(SITE_COOKIE)?.value) === 'full';
   } else full = true; // databundle.shop, *.databundle.shop, or an owner's own domain
 
+  // robots.txt + sitemap.xml: full-store addresses get their own
+  // (app/(full)/fs/robots-txt, sitemap-xml); the simple site keeps app/robots.js.
+  if (pathname === '/robots.txt' || pathname === '/sitemap.xml') {
+    if (!full) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = pathname === '/robots.txt' ? `${FS_PREFIX}/robots-txt` : `${FS_PREFIX}/sitemap-xml`;
+    return NextResponse.rewrite(url);
+  }
+
   if (!full) {
     // The full store's internal pages are never reachable on the simple site.
     if (pathname === FS_PREFIX || pathname.startsWith(`${FS_PREFIX}/`)) {
@@ -64,5 +73,6 @@ export async function middleware(request) {
 export const config = {
   // Everything except Next internals, API routes, the /hero folder and files
   // (favicon.svg, robots.txt, images…) — the same as databundle's matcher.
-  matcher: ['/((?!_next|api|hero|.*\\.[^/]+$).*)'],
+  // Plus /robots.txt and /sitemap.xml, so full-store addresses get their own.
+  matcher: ['/((?!_next|api|hero|.*\\.[^/]+$).*)', '/robots.txt', '/sitemap.xml'],
 };
