@@ -389,7 +389,7 @@ function statusBadge(status) {
 function OrderRow({ order, storeSlug }) {
   return (
     <Link
-      href={storeHref(storeSlug, `/account/orders/${order.id}`)}
+      href={storeHref(storeSlug, '/account/orders')}
       className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-[color:var(--surface-2)] transition-colors"
     >
       <NetworkIcon network={order.network} size={36} />
