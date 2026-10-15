@@ -118,7 +118,9 @@ function GuestCheckoutInner() {
     setLoading(true);
     try {
       const idem = crypto.randomUUID();
-      const res = await storePortal.initiateGuest(
+      // initiateMomo sends the customer's login if they have one (the order
+      // then joins their account); for a real guest it is the same as before.
+      const res = await storePortal.initiateMomo(
         storeSlug,
         {
           network,
