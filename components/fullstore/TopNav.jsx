@@ -16,6 +16,7 @@ import { formatGhs } from '@/lib/fullstore/format';
 import { storeHref, isPlatformSlug } from '@/lib/fullstore/links';
 import { LogoMark } from '@/components/fullstore/Logo';
 import { ThemeToggle } from '@/components/fullstore/ThemeToggle';
+import { useLiveDesign } from '@/lib/fullstore/liveDesign';
 
 /**
  * Top navigation bar.
@@ -29,8 +30,14 @@ import { ThemeToggle } from '@/components/fullstore/ThemeToggle';
  * endpoint (no separate today-summary endpoint exists yet), filtered to
  * entries whose createdAt falls within local midnight → now.
  */
-export function TopNav({ storeSlug, storeName, ownBrand = null }) {
+export function TopNav({ storeSlug, storeName, ownBrand = null, design: savedDesign = null }) {
   const { status, customer, wallet, logout } = useAuth();
+  // The owner's top-bar style (design.navStyle): default · centered (name in
+  // the middle) · minimal (slimmer, no line under it). No design = default.
+  const design = useLiveDesign(savedDesign);
+  const navStyle = design?.navStyle || 'default';
+  const centered = navStyle === 'centered';
+  const minimal = navStyle === 'minimal';
   const ownerAuth = useOwnerAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -51,11 +58,15 @@ export function TopNav({ storeSlug, storeName, ownBrand = null }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 backdrop-blur bg-[color:var(--background)]/85 border-b border-[color:var(--border)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <header
+        className={minimal
+          ? 'sticky top-0 z-30 bg-[color:var(--background)]'
+          : 'sticky top-0 z-30 backdrop-blur bg-[color:var(--background)]/85 border-b border-[color:var(--border)]'}
+      >
+        <div className={`max-w-6xl mx-auto px-4 sm:px-6 ${minimal ? 'h-14' : 'h-16'} flex items-center gap-3 ${centered ? 'relative justify-center' : 'justify-between'}`}>
           {/* Brand */}
           {ownBrand ? (
-            <Link href={homeHref} className="flex min-w-0 items-center gap-2 group">
+            <Link href={homeHref} className={`flex min-w-0 items-center gap-2 group ${centered ? 'max-w-[55%] sm:max-w-[45%]' : ''}`}>
               <StoreMark brand={ownBrand} />
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-[15px] font-extrabold tracking-tight text-[color:var(--ink)]">{ownBrand.name}</div>
@@ -82,7 +93,7 @@ export function TopNav({ storeSlug, storeName, ownBrand = null }) {
           )}
 
           {/* Desktop right side */}
-          <div className="hidden sm:flex items-center gap-2">
+          <div className={`hidden sm:flex items-center gap-2 ${centered ? 'absolute right-6 top-1/2 -translate-y-1/2' : ''}`}>
             {ownerActive ? (
               <OwnerDesktop
                 owner={ownerAuth.owner}
@@ -104,7 +115,7 @@ export function TopNav({ storeSlug, storeName, ownBrand = null }) {
           </div>
 
           {/* Mobile toggle + burger */}
-          <div className="sm:hidden flex items-center gap-1">
+          <div className={`sm:hidden flex items-center gap-1 ${centered ? 'absolute right-4 top-1/2 -translate-y-1/2' : ''}`}>
             <ThemeToggle />
             <button
               className="ml-1 w-10 h-10 rounded-xl bg-[color:var(--brand)] hover:bg-[color:var(--brand-deep)] text-black flex flex-col items-center justify-center gap-[4px] active:scale-95 transition-all"

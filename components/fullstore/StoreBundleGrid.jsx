@@ -18,14 +18,48 @@ import { BundleCard } from './BundleCard';
 import { NetworkIcon } from './NetworkIcon';
 import { BundleBuyModal } from './BundleBuyModal';
 import { storeHref } from '@/lib/fullstore/links';
+import { useLiveDesign } from '@/lib/fullstore/liveDesign';
 
 const ALL_NETWORKS = ['YELLO', 'TELECEL', 'AT_PREMIUM'];
 
-export function StoreBundleGrid({ products, storeSlug, allowGuest, hideEta = false }) {
+/* The owner's package layout (design.productLayout) → how the bundles sit.
+   No design = 'cards', exactly as before. */
+const LAYOUT_GRID = {
+  cards: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4',
+  grid: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3',
+  compact: 'grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2',
+  list: 'card overflow-hidden divide-y divide-[color:var(--border)]',
+};
+
+/**
+ * `design` is the store's saved design (or null). `flat` shows the products as
+ * one group under `title` instead of one group per network — the home page's
+ * "Popular bundles" row uses it.
+ */
+export function StoreBundleGrid({ products, storeSlug, allowGuest, hideEta = false, design: saved = null, flat = false, title = '' }) {
   const [activeProduct, setActiveProduct] = useState(null);
+  const design = useLiveDesign(saved);
+  const layout = LAYOUT_GRID[design?.productLayout] ? design.productLayout : 'cards';
+  // Cards keep their original `contents` wrapper; the other layouts need a
+  // real box per bundle (grid cell / list row).
+  const itemClass = layout === 'cards' ? 'text-left contents' : 'block w-full text-left';
+
+  const items = (list) => list.map((p) => (
+    allowGuest ? (
+      <button key={p._id} type="button" onClick={() => setActiveProduct(p)} className={itemClass}>
+        <BundleCard product={p} variant={layout} />
+      </button>
+    ) : (
+      <Link key={p._id} href={checkoutHref(p)} className={layout === 'cards' ? 'contents' : 'block'}>
+        <BundleCard product={p} variant={layout} />
+      </Link>
+    )
+  ));
 
   const checkoutHref = (p) =>
     storeHref(storeSlug, `/checkout?network=${encodeURIComponent(p.network)}&capacity=${p.capacity}`);
+
+  if ((!products || products.length === 0) && flat) return null;
 
   if (!products || products.length === 0) {
     return (
@@ -35,6 +69,27 @@ export function StoreBundleGrid({ products, storeSlug, allowGuest, hideEta = fal
           Bundles will appear here as the owner stocks the store.
         </p>
       </div>
+    );
+  }
+
+  const modal = activeProduct && (
+    <BundleBuyModal
+      storeSlug={storeSlug}
+      product={activeProduct}
+      hideEta={hideEta}
+      onClose={() => setActiveProduct(null)}
+    />
+  );
+
+  if (flat) {
+    return (
+      <>
+        <div>
+          {title && <h2 className="text-xl sm:text-2xl font-black tracking-tight mb-4">{title}</h2>}
+          <div className={LAYOUT_GRID[layout]}>{items(products)}</div>
+        </div>
+        {modal}
+      </>
     );
   }
 
@@ -57,37 +112,15 @@ export function StoreBundleGrid({ products, storeSlug, allowGuest, hideEta = fal
                   {label} <span className="text-[color:var(--ink-faint)] font-bold">· {netProducts.length} bundles</span>
                 </h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {netProducts.map((p) => (
-                  allowGuest ? (
-                    <button
-                      key={p._id}
-                      type="button"
-                      onClick={() => setActiveProduct(p)}
-                      className="text-left contents"
-                    >
-                      <BundleCard product={p} />
-                    </button>
-                  ) : (
-                    <Link key={p._id} href={checkoutHref(p)} className="contents">
-                      <BundleCard product={p} />
-                    </Link>
-                  )
-                ))}
+              <div className={LAYOUT_GRID[layout]}>
+                {items(netProducts)}
               </div>
             </div>
           );
         })}
       </div>
 
-      {activeProduct && (
-        <BundleBuyModal
-          storeSlug={storeSlug}
-          product={activeProduct}
-          hideEta={hideEta}
-          onClose={() => setActiveProduct(null)}
-        />
-      )}
+      {modal}
     </>
   );
 }

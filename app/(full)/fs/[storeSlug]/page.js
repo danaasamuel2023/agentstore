@@ -15,8 +15,7 @@
  * Drop in real photos and they slot straight in — no other code changes.
  */
 
-import { StoreBundleGrid } from '@/components/fullstore/StoreBundleGrid';
-import { DeliveryEtaBanner } from '@/components/fullstore/DeliveryEta';
+import { StoreHomeSections } from '@/components/fullstore/StoreHomeSections';
 import { isPlatformSlug } from '@/lib/fullstore/links';
 import { StoreHeader } from '@/components/fullstore/StoreHeader';
 import { savedDesign } from '@/lib/fullstore/storeDesign';
@@ -72,33 +71,26 @@ export default async function StoreHome({ params }) {
   // Owner's setting: keep the live delivery-time widget off this store.
   const hideEta = !!store.customization?.hideDeliveryEta;
 
+  const design = isPlatformSlug(storeSlug) ? null : savedDesign(store);
+  const whatsapp = store.contactInfo?.whatsappNumber ? String(store.contactInfo.whatsappNumber).replace(/\D/g, '') : null;
+
   return (
     <>
-      {/* ====================================================================
-       *  Slim header — store name + a single "Buy without account" hint.
-       *  Mirrors the DataMart buy-page format (mtnup2u, TELECEL, at-ishare-f):
-       *  no marketing copy, no testimonials. Customers scrolled here to buy,
-       *  not to read. Bundles are immediately below.
-       * =================================================================== */}
-      <StoreHeader
-        storeName={store.storeName}
-        whatsapp={store.contactInfo?.whatsappNumber ? String(store.contactInfo.whatsappNumber).replace(/\D/g, '') : null}
-        design={isPlatformSlug(storeSlug) ? null : savedDesign(store)}
-      />
+      {/* Header: store name, the owner's headline, WhatsApp. Then the bundles
+          (and, for a store with its own design, the owner's sections).
+          Mirrors the DataMart buy-page format: customers came here to buy. */}
+      <StoreHeader storeName={store.storeName} whatsapp={whatsapp} design={design} hideEta={hideEta} />
 
-      {/* ====================================================================
-       *  ALL BUNDLES — the only section. Grouped by network with themed
-       *  cards (yellow / red / purple).
-       * =================================================================== */}
-      <section id="bundles" className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-4">
-        {!hideEta && <DeliveryEtaBanner />}
-        <StoreBundleGrid
-          products={products}
-          storeSlug={storeSlug}
-          allowGuest={allowGuest}
-          hideEta={hideEta}
-        />
-      </section>
+      <StoreHomeSections
+        products={products}
+        storeSlug={storeSlug}
+        storeName={store.storeName}
+        allowGuest={allowGuest}
+        hideEta={hideEta}
+        whatsapp={whatsapp}
+        phone={store.contactInfo?.phoneNumber || null}
+        design={design}
+      />
     </>
   );
 }

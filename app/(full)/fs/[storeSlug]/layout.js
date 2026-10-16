@@ -112,6 +112,10 @@ export default async function StoreLayout({ children, params }) {
         storeSlug={storeSlug}
         storeName={store.storeName}
         ownBrand={design ? { name: store.storeName, logo: safeLogo(store.storeLogo) } : null}
+        design={design}
+        whatsapp={store.contactInfo?.whatsappNumber ? String(store.contactInfo.whatsappNumber).replace(/\D/g, '') : null}
+        announcement={isPlatformSlug(storeSlug) ? null : store.announcement || null}
+        announcementStyle={store.customization?.announcementPopupStyle || null}
       >
         {children}
       </StoreShell>

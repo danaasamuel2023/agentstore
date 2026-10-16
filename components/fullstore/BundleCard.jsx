@@ -1,7 +1,7 @@
 'use client';
 
 import { NetworkIcon } from './NetworkIcon';
-import { ChevronDown, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { formatGhs, NETWORK_LABEL } from '@/lib/fullstore/format';
 
 // Network-themed surface: bundle cards adopt the full network colour
@@ -20,10 +20,54 @@ const NET_SURFACE = {
 
 const DEFAULT_SURFACE = { bg: '#FBBF24', ink: '#000', sub: 'rgba(0,0,0,0.6)' };
 
-export function BundleCard({ product }) {
+/**
+ * One bundle. `variant` is the owner's package layout from their design:
+ *   cards (the original) · grid (smaller cards, more per row) ·
+ *   compact (small dense tiles) · list (one row per bundle).
+ */
+export function BundleCard({ product, variant = 'cards' }) {
   const networkLabel = NETWORK_LABEL[product.network] || product.network;
   const surface = NET_SURFACE[product.network] || DEFAULT_SURFACE;
   const unavailable = product.outOfStock || product.inStock === false;
+
+  if (variant === 'list') {
+    return (
+      <div
+        className={`flex items-center gap-3 px-4 py-3 bg-[color:var(--surface)] hover:bg-[color:var(--surface-2)] transition-colors ${unavailable ? 'opacity-50 pointer-events-none' : ''}`}
+        style={{ boxShadow: `inset 4px 0 0 ${surface.bg}` }}
+      >
+        <NetworkIcon network={product.network} size={30} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[16px] font-black leading-tight text-[color:var(--ink)]">{product.capacity}GB</div>
+          <div className="text-[12px] text-[color:var(--ink-mute)]">
+            {unavailable ? (product.outOfStockMessage || 'Currently unavailable') : `${networkLabel} Bundle · 1–5 min`}
+          </div>
+        </div>
+        <span className="text-[16px] font-black tabular-nums text-[color:var(--ink)]">{formatGhs(product.sellingPrice)}</span>
+        <ChevronRight className="w-4 h-4 text-[color:var(--ink-faint)]" />
+      </div>
+    );
+  }
+
+  if (variant === 'grid' || variant === 'compact') {
+    const small = variant === 'compact';
+    return (
+      <div
+        className={`relative overflow-hidden rounded-2xl transition-all hover:shadow-lg hover:-translate-y-0.5 h-full ${unavailable ? 'opacity-50 pointer-events-none' : ''}`}
+        style={{ background: surface.bg, color: surface.ink }}
+      >
+        {unavailable && (
+          <div className="bg-red-600 text-white text-[9px] font-bold py-0.5 text-center tracking-wide">OUT OF STOCK</div>
+        )}
+        <div className={small ? 'p-3' : 'p-4'}>
+          {!small && <NetworkIcon network={product.network} size={28} />}
+          <h3 className={`font-black leading-none ${small ? 'text-xl' : 'mt-2 text-2xl sm:text-3xl'}`}>{product.capacity}GB</h3>
+          <p className={small ? 'text-[10px] mt-0.5' : 'text-xs mt-1'} style={{ color: surface.sub }}>{networkLabel}</p>
+          <div className={`font-black tabular-nums ${small ? 'mt-2 text-[15px]' : 'mt-3 text-xl'}`}>{formatGhs(product.sellingPrice)}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
