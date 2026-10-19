@@ -41,7 +41,10 @@ function PaymentVerifyContent() {
   const buildTxFromStatus = (tx) => ({
     transactionId: tx.transactionId,
     amount: tx.sellingPrice || tx.amount,
-    product: tx.product || (tx.productId ? { network: tx.productId.network, capacity: tx.productId.capacity } : { network: tx.network, capacity: tx.capacity }),
+    product: tx.product || (tx.productId ? { network: tx.productId.network, capacity: tx.productId.capacity } : { network: tx.network, capacity: tx.capacity, comboCost: tx.comboCost }),
+    // The ORDER's state, not the payment's. On MashUp these differ for up
+    // to an hour and only this one is true.
+    delivery: tx.dataPurchase ? { status: tx.dataPurchase.status } : null,
     phoneNumber: tx.phoneNumber || tx.customerPhone,
     orderStatus: tx.orderStatus
   });
@@ -272,19 +275,35 @@ function PaymentVerifyContent() {
   }
 
   if (status === 'success') {
+    // A MashUp pack is not a bundle: it has no meaningful GB headline, and
+    // it is loaded through one shared lane rather than sent in seconds.
+    const isMashup = transaction?.product?.network === 'MTN_COMBO';
     const rows = [
-      { label: 'Bundle', value: `${transaction?.product?.capacity || '?'}GB ${networkName(transaction?.product?.network)}` },
+      isMashup
+        ? { label: 'Pack', value: transaction?.product?.comboCost ? `MashUp ₵${transaction.product.comboCost}` : 'MashUp pack' }
+        : { label: 'Bundle', value: `${transaction?.product?.capacity || '?'}GB ${networkName(transaction?.product?.network)}` },
       { label: 'Paid', value: `₵${transaction?.amount?.toFixed?.(2) || transaction?.amount || '?'}` },
       { label: 'Sent to', value: transaction?.phoneNumber || '—' },
     ];
-    const done = transaction?.orderStatus === 'completed';
+    // orderStatus turns 'completed' the moment the money lands. On a bundle
+    // lane that answers in seconds the difference does not show; on MashUp it
+    // would tell a customer their pack had arrived up to an hour before it
+    // did, which is the one thing a receipt must never do. So there, trust
+    // only the order's own delivery status.
+    const done = isMashup
+      ? transaction?.delivery?.status === 'completed'
+      : transaction?.orderStatus === 'completed';
 
     return (
       <Shell
         tone="ok"
         Icon={CheckCircle}
         title="Payment successful"
-        subtitle={done ? 'Delivered. Check the phone.' : 'Your order is confirmed and queued.'}
+        subtitle={done
+          ? 'Delivered. Check the phone.'
+          : isMashup
+            ? 'Paid. Your pack is being loaded — usually within the hour.'
+            : 'Your order is confirmed and queued.'}
       >
         <CopyRow label="Transaction ID" value={transaction?.transactionId} />
 
@@ -328,7 +347,9 @@ function PaymentVerifyContent() {
         )}
 
         <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
-          The network sends an SMS when the data lands. Keep the transaction ID.
+          {isMashup
+            ? 'MTN sends an SMS when the pack is on the number. Keep the transaction ID.'
+            : 'The network sends an SMS when the data lands. Keep the transaction ID.'}
         </p>
 
         <SupportRow
