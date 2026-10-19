@@ -26,9 +26,9 @@
  */
 
 import Link from 'next/link';
-import { sellsCheckers } from './SiteNav';
+import { sellsCheckers, sellsMashup } from './SiteNav';
 import { ConnectedArt } from './StoryArt';
-import { ArrowRight, GraduationCap } from 'lucide-react';
+import { ArrowRight, GraduationCap, Layers } from 'lucide-react';
 import { useStoreDesign } from '@/lib/storeDesign';
 
 /* Background textures, all drawn in the band's own ink so they suit any colour.
@@ -190,6 +190,22 @@ export default function SiteHero({ store, storeSlug, style = 'default' }) {
                 >
                   <GraduationCap className="h-4 w-4" />
                   Result checkers
+                </Link>
+              )}
+
+              {/* Same treatment as checkers, and for the same reason: the hero
+                  keeps ONE filled button. */}
+              {sellsMashup(store) && (
+                <Link
+                  href={`/shop/${storeSlug}/mashup`}
+                  className="dm-cta inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-6 text-[15px] font-semibold transition-transform hover:-translate-y-px"
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--brand-ink) 40%, transparent)',
+                    color: 'var(--brand-ink)',
+                  }}
+                >
+                  <Layers className="h-4 w-4" />
+                  MashUp packs
                 </Link>
               )}
             </div>

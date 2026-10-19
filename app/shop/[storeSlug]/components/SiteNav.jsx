@@ -30,7 +30,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Menu, X, Moon, Sun, ArrowRight, Search, Phone,
-  House, ShoppingBag, Package, Info, Users, GraduationCap,
+  House, ShoppingBag, Package, Info, Users, GraduationCap, Layers,
 } from 'lucide-react';
 import WhatsAppIcon from './WhatsAppIcon';
 
@@ -49,6 +49,9 @@ export const NAV_LINKS = [
   // shop that has not switched them on must not advertise a page that tells
   // visitors it sells nothing.
   { path: '/checkers', label: 'Checkers', Icon: GraduationCap, needs: 'checkers' },
+  // Same rule, different switch: MashUp availability is a PLATFORM one, so
+  // the server decides it and sends the answer with the store.
+  { path: '/mashup', label: 'MashUp', Icon: Layers, needs: 'mashup' },
   { path: '/orders/search', label: 'Track order', Icon: Package },
   { path: '/about', label: 'About', Icon: Info },
 ];
@@ -63,9 +66,25 @@ export function sellsCheckers(store) {
     && (store.resultCheckers.products || []).some((p) => p.isActive);
 }
 
+/** Does this shop sell MashUp packs right now?
+ *
+ *  Unlike checkers this is NOT a per-shop setting the store document can
+ *  answer. Packs are on by default in every shop and the whole product line
+ *  is switched on and off platform-wide, so the server works it out and
+ *  sends `mashupSellable` with the store. Reading it from the store document
+ *  here would advertise MashUp in every shop on the platform while the lane
+ *  was shut. */
+export function sellsMashup(store) {
+  return store?.mashupSellable === true;
+}
+
 /** The links this particular shop should show. */
 export function navLinksFor(store) {
-  return NAV_LINKS.filter((l) => l.needs !== 'checkers' || sellsCheckers(store));
+  return NAV_LINKS.filter((l) => {
+    if (l.needs === 'checkers') return sellsCheckers(store);
+    if (l.needs === 'mashup') return sellsMashup(store);
+    return true;
+  });
 }
 
 /** Always renders on the brand colour — the bar and the mobile panel are both
