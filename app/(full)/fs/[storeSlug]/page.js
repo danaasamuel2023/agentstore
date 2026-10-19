@@ -16,7 +16,8 @@
  */
 
 import { StoreHomeSections } from '@/components/fullstore/StoreHomeSections';
-import { isPlatformSlug } from '@/lib/fullstore/links';
+import Link from 'next/link';
+import { isPlatformSlug, storeHref } from '@/lib/fullstore/links';
 import { StoreHeader } from '@/components/fullstore/StoreHeader';
 import { savedDesign } from '@/lib/fullstore/storeDesign';
 
@@ -49,6 +50,21 @@ async function fetchStore(slug) {
   }
 }
 
+// MashUp packs share the simple shop's catalogue; `available` is the
+// platform-wide switch. Any failure just hides the card.
+async function fetchMashup(slug) {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/agent-stores/stores/${encodeURIComponent(slug)}/mashup`, {
+      next: { revalidate: 60 }
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    const products = d?.data?.products || [];
+    if (d?.data?.available === false || products.length === 0) return null;
+    return { from: Math.min(...products.map((p) => Number(p.sellingPrice) || 0)) };
+  } catch { return null; }
+}
+
 async function fetchProducts(slug) {
   try {
     const res = await fetch(`${API_BASE}/api/v1/agent-stores/stores/${encodeURIComponent(slug)}/products`, {
@@ -62,7 +78,12 @@ async function fetchProducts(slug) {
 
 export default async function StoreHome({ params }) {
   const { storeSlug } = await params;
-  const [store, products] = await Promise.all([fetchStore(storeSlug), fetchProducts(storeSlug)]);
+  // The platform's own store does not advertise packs (the main site sells them).
+  const [store, products, mashup] = await Promise.all([
+    fetchStore(storeSlug),
+    fetchProducts(storeSlug),
+    isPlatformSlug(storeSlug) ? null : fetchMashup(storeSlug)
+  ]);
   if (!store) return null;
 
   // When guest checkout is on, the client grid opens an in-page modal.
@@ -80,6 +101,19 @@ export default async function StoreHome({ params }) {
           (and, for a store with its own design, the owner's sections).
           Mirrors the DataMart buy-page format: customers came here to buy. */}
       <StoreHeader storeName={store.storeName} whatsapp={whatsapp} design={design} hideEta={hideEta} />
+
+      {mashup && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
+          <Link href={storeHref(storeSlug, '/mashup')} className="card flex items-center gap-3 p-4 hover:border-[color:var(--border-strong)]">
+            <span className="w-11 h-11 rounded-xl bg-[color:var(--brand-glow)] flex items-center justify-center shrink-0 text-lg font-black text-[color:var(--brand-deep)]">M</span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-extrabold">MTN MashUp packs</span>
+              <span className="block text-[12.5px] text-[color:var(--ink-mute)]">Data + calls + SMS in one pack · from GH₵{mashup.from.toFixed(2)}</span>
+            </span>
+            <span className="btn btn-yellow shrink-0">View</span>
+          </Link>
+        </div>
+      )}
 
       <StoreHomeSections
         products={products}
