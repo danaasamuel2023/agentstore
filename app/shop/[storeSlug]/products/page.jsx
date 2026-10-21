@@ -182,7 +182,7 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
   const handleBuy = () => {
     setError('');
     if (!product.inStock) {
-      setError('This bundle is out of stock');
+      setError('This bundle is restocking. Please check back soon.');
       return;
     }
     if (!name.trim()) {
@@ -198,10 +198,10 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
   
   return (
     <div className="relative">
-      {/* Out of Stock Badge */}
+      {/* Restocking badge (owner 2026-10-21: say Restocking, never out of stock) */}
       {!product.inStock && (
         <div className="absolute top-3 right-3 z-10">
-          <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">OUT OF STOCK</span>
+          <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">RESTOCKING</span>
         </div>
       )}
       
@@ -253,7 +253,7 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
           {!product.inStock ? (
             <div className="text-center py-4">
               <X className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <p className="font-semibold">Out of Stock</p>
+              <p className="font-semibold">Restocking</p>
               <p className={`text-sm ${style.subtext}`}>Check back later</p>
             </div>
           ) : (
