@@ -302,7 +302,7 @@ function PaymentVerifyContent() {
         subtitle={done
           ? 'Delivered. Check the phone.'
           : isMashup
-            ? 'Paid. Your pack is being loaded — usually within the hour.'
+            ? 'Paid. Your pack is being loaded — it usually arrives instantly.'
             : 'Your order is confirmed and queued.'}
       >
         <CopyRow label="Transaction ID" value={transaction?.transactionId} />
