@@ -108,7 +108,7 @@ function ReturnInner() {
             <p className="text-[13px] text-[color:var(--ink-mute)] mt-1">
               {phase === 'delivered'
                 ? 'Check the phone — the pack is on it.'
-                : 'Your pack is being loaded. It usually arrives within the hour. You can close this page.'}
+                : 'Your pack is being loaded. It usually arrives instantly. You can close this page.'}
             </p>
             <div className="card-soft p-3 mt-5 text-left">
               <Row k="Pack" v={pack} />

@@ -104,13 +104,13 @@ export default async function StoreHome({ params }) {
 
       {mashup && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
-          <Link href={storeHref(storeSlug, '/mashup')} className="card flex items-center gap-3 p-4 hover:border-[color:var(--border-strong)]">
-            <span className="w-11 h-11 rounded-xl bg-[color:var(--brand-glow)] flex items-center justify-center shrink-0 text-lg font-black text-[color:var(--brand-deep)]">M</span>
+          <Link href={storeHref(storeSlug, '/mashup')} className="flex items-center gap-3 rounded-2xl bg-[#FFCC00] p-4 text-black shadow-sm transition hover:-translate-y-0.5">
+            <span className="w-11 h-11 rounded-xl bg-black flex items-center justify-center shrink-0 text-lg font-black text-[#FFCC00]">M</span>
             <span className="min-w-0 flex-1">
-              <span className="block font-extrabold">MTN MashUp packs</span>
-              <span className="block text-[12.5px] text-[color:var(--ink-mute)]">Data + calls + SMS in one pack · from GH₵{mashup.from.toFixed(2)}</span>
+              <span className="block font-black">MTN MashUp packs</span>
+              <span className="block text-[12.5px] font-semibold text-black/70">Data + calls + SMS in one pack · from GH₵{mashup.from.toFixed(2)}</span>
             </span>
-            <span className="btn btn-yellow shrink-0">View</span>
+            <span className="shrink-0 rounded-xl bg-black px-4 py-2 text-sm font-bold text-[#FFCC00]">View</span>
           </Link>
         </div>
       )}

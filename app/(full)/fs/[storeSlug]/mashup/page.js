@@ -9,74 +9,74 @@
  * so prices, floors and the platform on/off switch are exactly the simple
  * shop's. Payment is MoMo/card only — there is no wallet path for packs yet.
  *
- * A pack is not a size: each carries data AND minutes AND SMS and the list
- * is not ordered by any one of them, so every part is on every card.
- * Delivery usually takes up to an hour; the page says so before payment.
+ * Same look as the MashUp page on the main sites: a black banner, all-yellow
+ * MTN cards with a black Buy button, and a pop-up for the number and email.
  */
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, AlertCircle, Clock, Phone, MessageSquare, Database, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, X, Wifi, Phone, MessageSquare, Calendar, Smartphone } from 'lucide-react';
 import { storeHref } from '@/lib/fullstore/links';
 import { useAuth } from '@/lib/fullstore/auth';
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.datamartgh.shop'}/api/v1/agent-stores`;
-const dataLabel = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`);
+const dataLabel = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(2).replace(/\.?0+$/, '')}GB` : `${mb}MB`);
 const ghs = (n) => `GH₵${Number(n || 0).toFixed(2)}`;
 
-export default function MashupPage() {
-  const { storeSlug } = useParams();
-  const { customer } = useAuth() || {};
+function PackCard({ p, onPick }) {
+  return (
+    <div className="flex flex-col rounded-2xl bg-[#FFCC00] p-5 text-black shadow-sm">
+      <p className="text-xs font-black uppercase tracking-widest">MTN MashUp</p>
+      <p className="mt-1 text-3xl font-black">{ghs(p.sellingPrice)}</p>
+      <ul className="mt-4 space-y-2 text-sm font-semibold">
+        <li className="flex items-center gap-2"><Wifi className="h-4 w-4" />{dataLabel(p.mb)} data</li>
+        <li className="flex items-center gap-2"><Phone className="h-4 w-4" />{p.onnetMins} mins to MTN</li>
+        <li className="flex items-center gap-2"><Phone className="h-4 w-4" />{p.offnetMins} mins to other networks</li>
+        <li className="flex items-center gap-2"><MessageSquare className="h-4 w-4" />{p.sms} SMS</li>
+        <li className="flex items-center gap-2"><Calendar className="h-4 w-4" />Valid {p.validityDays || 30} days</li>
+      </ul>
+      <button
+        type="button"
+        onClick={() => onPick(p)}
+        className="mt-5 w-full rounded-xl bg-black py-3 text-sm font-bold text-[#FFCC00] hover:bg-zinc-800"
+      >
+        Buy
+      </button>
+    </div>
+  );
+}
 
-  const [products, setProducts] = useState(null); // null = loading
-  const [available, setAvailable] = useState(true);
-  const [picked, setPicked] = useState(null);
+function BuyModal({ pack, storeSlug, customer, onClose }) {
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(customer?.email || '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (customer?.email && !email) setEmail(customer.email);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customer?.email]);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape' && !busy) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+  }, [busy, onClose]);
 
-  useEffect(() => {
-    let dead = false;
-    (async () => {
-      try {
-        const r = await fetch(`${API_BASE}/stores/${encodeURIComponent(storeSlug)}/mashup`);
-        const j = await r.json();
-        if (dead) return;
-        setAvailable(j?.data?.available !== false);
-        setProducts(j?.status === 'success' ? j.data.products || [] : []);
-      } catch {
-        if (!dead) {
-          setProducts([]);
-          setError('We could not load the packs. Check your connection and try again.');
-        }
-      }
-    })();
-    return () => { dead = true; };
-  }, [storeSlug]);
+  const validPhone = /^0\d{9}$/.test(phone);
+  const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
 
-  const buy = async (e) => {
+  const pay = async (e) => {
     e.preventDefault();
     setError('');
-    if (picked == null) return setError('Choose a pack first.');
-    const clean = phone.replace(/\s/g, '');
-    if (!/^(0\d{9}|233\d{9})$/.test(clean)) return setError('Enter a valid MTN number, e.g. 024 123 4567.');
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Enter a valid email address.');
-
+    if (!validPhone) return setError('Enter a valid MTN number, e.g. 0241234567.');
+    if (!validEmail) return setError('Enter a valid email address.');
     setBusy(true);
     try {
       const r = await fetch(`${API_BASE}/stores/${encodeURIComponent(storeSlug)}/mashup/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          comboCost: picked,
-          phoneNumber: clean,
+          comboCost: pack.comboCost,
+          phoneNumber: phone,
           customerEmail: email.trim().toLowerCase(),
           customerName: customer?.name || undefined,
           // Back to THIS store (works on databundle.shop and on a custom
@@ -92,10 +92,107 @@ export default function MashupPage() {
       setError(j.message || 'We could not start the payment. Please try again.');
     } catch {
       setError('We could not reach the server. Check your connection and try again.');
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
+
+  const inputCls = 'mt-2 w-full rounded-xl border-2 border-gray-300 bg-white px-4 py-3 font-bold text-gray-900 placeholder:text-gray-400 focus:border-black focus:outline-none';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
+      onClick={() => { if (!busy) onClose(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Buy MTN MashUp ${ghs(pack.sellingPrice)}`}
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 text-gray-900 shadow-2xl sm:max-w-md sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-lg font-black">MTN MashUp {ghs(pack.sellingPrice)}</p>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="rounded-full p-1.5 text-gray-700 hover:bg-gray-100">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-gray-600">
+          {dataLabel(pack.mb)} data · {pack.onnetMins} MTN mins · {pack.offnetMins} other mins · {pack.sms} SMS · {pack.validityDays || 30} days
+        </p>
+
+        <form onSubmit={pay}>
+          <label className="mt-5 block text-xs font-bold uppercase tracking-wider text-gray-500">MTN number to receive the pack</label>
+          <input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            autoFocus
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            placeholder="024 123 4567"
+            className={`${inputCls} text-lg tracking-wider`}
+          />
+          {validPhone && <p className="mt-2 text-xs text-gray-500">Check the number carefully. A pack sent to a wrong number cannot be taken back.</p>}
+
+          <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-gray-500">Email for your receipt</label>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={`${inputCls} text-[15px] font-semibold`}
+          />
+
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy || !validPhone || !validEmail}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-bold text-[#FFCC00] hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+            Pay {ghs(pack.sellingPrice)} with MoMo
+          </button>
+          <p className="mt-3 text-center text-xs text-gray-500">Packs usually arrive instantly.</p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function MashupPage() {
+  const { storeSlug } = useParams();
+  const { customer } = useAuth() || {};
+
+  const [products, setProducts] = useState(null); // null = loading
+  const [available, setAvailable] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [picked, setPicked] = useState(null);
+
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/stores/${encodeURIComponent(storeSlug)}/mashup`);
+        const j = await r.json();
+        if (dead) return;
+        setAvailable(j?.data?.available !== false);
+        setProducts(j?.status === 'success' ? j.data.products || [] : []);
+      } catch {
+        if (!dead) {
+          setProducts([]);
+          setLoadError('We could not load the packs. Check your connection and try again.');
+        }
+      }
+    })();
+    return () => { dead = true; };
+  }, [storeSlug]);
 
   if (products === null) {
     return (
@@ -108,88 +205,40 @@ export default function MashupPage() {
   if (!available || products.length === 0) {
     return (
       <div className="max-w-xl mx-auto px-5 py-16 text-center">
-        <h1 className="text-xl font-extrabold">No MashUp packs right now</h1>
+        <h1 className="text-xl font-extrabold">MashUp packs are restocking</h1>
         <p className="text-[14px] text-[color:var(--ink-mute)] mt-2">
-          {available ? 'This store sells data bundles. Have a look at those instead.' : 'Packs are paused at the moment. Data bundles are still on sale.'}
+          {loadError || (available ? 'This store sells data bundles. Have a look at those instead.' : 'Please check back soon. Data bundles are still on sale.')}
         </p>
         <Link href={storeHref(storeSlug, '')} className="btn btn-primary mt-6 inline-flex">Browse bundles</Link>
       </div>
     );
   }
 
-  const chosen = products.find((p) => p.comboCost === picked);
-
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-black">MTN MashUp packs</h1>
-      <p className="text-[14px] text-[color:var(--ink-mute)] mt-1">
-        Data, calls and SMS in one pack, for any MTN number. Valid 30 days.
-      </p>
-
-      {error && (
-        <div className="mt-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-[14px] text-[color:var(--danger)]">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> <span>{error}</span>
-        </div>
-      )}
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        {products.map((p) => {
-          const on = picked === p.comboCost;
-          return (
-            <button
-              key={p.comboCost}
-              type="button"
-              onClick={() => setPicked(p.comboCost)}
-              aria-pressed={on}
-              className={`card p-4 text-left transition ${on ? 'ring-2 ring-[color:var(--brand)]' : 'hover:border-[color:var(--ink-faint)]'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className="font-extrabold">{dataLabel(p.mb)}</span>
-                <span className="font-extrabold">{ghs(p.sellingPrice)}</span>
-              </div>
-              <div className="mt-2 space-y-1 text-[12.5px] text-[color:var(--ink-mute)]">
-                <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 shrink-0" />{p.onnetMins} min on MTN · {p.offnetMins} min to other networks</div>
-                <div className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5 shrink-0" />{p.sms} SMS</div>
-                <div className="flex items-center gap-1.5"><Database className="w-3.5 h-3.5 shrink-0" />{dataLabel(p.mb)} data · {p.validityDays} days</div>
-              </div>
-            </button>
-          );
-        })}
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="rounded-3xl bg-black p-6 text-white sm:p-8">
+        <p className="text-xs font-black uppercase tracking-widest text-[#FFCC00]">New</p>
+        <h1 className="mt-2 text-3xl font-black text-white sm:text-4xl">MTN MashUp packs</h1>
+        <p className="mt-2 max-w-xl text-sm text-zinc-300">
+          Data, call minutes and SMS in one pack, valid for 30 days. Pay with MoMo. Packs usually arrive instantly.
+        </p>
       </div>
 
-      <form onSubmit={buy} className="card p-5 mt-6 space-y-4">
-        <Field label="MTN number" hint="The pack is loaded onto this number." value={phone} onChange={setPhone} placeholder="024 123 4567" inputMode="tel" autoComplete="tel" />
-        <Field label="Email" hint="Your payment receipt goes here." value={email} onChange={setEmail} placeholder="you@example.com" type="email" autoComplete="email" />
-        <div className="card-soft flex items-center justify-between p-3.5">
-          <span className="text-[14px] text-[color:var(--ink-mute)]">Total</span>
-          <span className="text-lg font-black">{chosen ? ghs(chosen.sellingPrice) : ghs(0)}</span>
-        </div>
-        <button type="submit" disabled={busy || !chosen} className="btn btn-yellow w-full justify-center">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Pay with MoMo or card'}
-        </button>
-        <p className="flex items-center justify-center gap-1.5 text-center text-[12px] text-[color:var(--ink-faint)]">
-          <Clock className="w-3 h-3" /> Packs usually arrive within the hour, not instantly.
-        </p>
-      </form>
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {products.map((p) => (
+          <PackCard key={p.comboCost} p={p} onPick={setPicked} />
+        ))}
+      </div>
+
+      <p className="mt-8 text-xs leading-relaxed text-[color:var(--ink-faint)]">
+        A cheaper pack can carry more call minutes and less data than a dearer one. Pick by what you need. Each card shows exactly what you get.
+      </p>
 
       <Link href={storeHref(storeSlug, '')} className="mt-6 inline-flex items-center gap-2 text-[14px] text-[color:var(--ink-mute)] hover:text-[color:var(--ink)]">
         <ArrowLeft className="w-4 h-4" /> Back to the store
       </Link>
-    </div>
-  );
-}
 
-function Field({ label, hint, value, onChange, ...rest }) {
-  return (
-    <label className="block">
-      <span className="block text-[12px] font-bold text-[color:var(--ink-mute)] mb-1.5">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-[color:var(--border)] bg-transparent px-3 py-2.5 text-[15px] outline-none focus:border-[color:var(--brand)]"
-        {...rest}
-      />
-      {hint && <span className="block text-[12px] text-[color:var(--ink-faint)] mt-1">{hint}</span>}
-    </label>
+      {picked && <BuyModal pack={picked} storeSlug={storeSlug} customer={customer} onClose={() => setPicked(null)} />}
+    </div>
   );
 }
