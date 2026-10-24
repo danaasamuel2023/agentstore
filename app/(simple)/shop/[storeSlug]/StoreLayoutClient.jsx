@@ -25,7 +25,7 @@ import { sanitizeDesign } from '@/lib/designSpec';
 import { PREVIEW_PARAM, MSG_READY, MSG_PREVIEW, isPreviewOrigin } from '@/lib/designPreview';
 import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
-import SiteNav, { navLinksFor } from './components/SiteNav';
+import SiteNav, { navLinksFor, sellsMashup, withMashupLink } from './components/SiteNav';
 import VerifyNumberModal from './components/VerifyNumberModal';
 import { customThemeDesign, customNavLinks, customNavStyle, SITE_PREVIEW_PARAM, cleanPreviewToken } from '@/lib/customDesign';
 import { CustomDesignProvider } from '@/lib/customDesignContext';
@@ -267,7 +267,7 @@ export default function StoreLayoutClient({ children, initialStore, initialCusto
   const isHome = isActive('');
   // Custom design: its menu + logo; the classic SiteHero isn't on a custom home,
   // so the nav must not sit transparently over content it wasn't designed for.
-  const links = customNavLinks(custom, params.storeSlug) || navLinksFor(store);
+  const links = withMashupLink(customNavLinks(custom, params.storeSlug), store) || navLinksFor(store);
   const shown = custom?.logoUrl ? { ...store, storeLogo: custom.logoUrl } : store;
   const customHome = isHome && !!custom?.pages?.['/'];
 
@@ -315,6 +315,21 @@ export default function StoreLayoutClient({ children, initialStore, initialCusto
 
         {/* The home page lays out its own width so SiteHero can run genuinely
             edge to edge. Every other page gets the standard content column. */}
+        {/* An AI-built home page has no MashUp section of its own. */}
+        {customHome && sellsMashup(store) && (
+          <div className="mx-auto max-w-5xl px-4 pt-4">
+            <Link href={`/shop/${params.storeSlug}/mashup`} className="flex items-center gap-3 rounded-2xl bg-[#FFCC00] p-4 text-black shadow-sm transition hover:-translate-y-0.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black text-lg font-black text-[#FFCC00]">M</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-black uppercase tracking-wide">New</span>
+                <span className="block font-black">MTN MashUp packs</span>
+                <span className="block text-[12.5px] font-semibold text-black/70">Data, calls and SMS in one pack</span>
+              </span>
+              <span className="shrink-0 rounded-xl bg-black px-4 py-2 text-sm font-bold text-[#FFCC00]">See packs</span>
+            </Link>
+          </div>
+        )}
+
         {isHome ? (
           children
         ) : (

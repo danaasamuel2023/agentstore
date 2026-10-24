@@ -87,6 +87,17 @@ export function navLinksFor(store) {
   });
 }
 
+/** An AI-built website brings its own menu, which knows nothing about MashUp.
+ *  Add the MashUp link (after "Buy data") when this shop sells packs. */
+export function withMashupLink(links, store) {
+  if (!links || !sellsMashup(store) || links.some((l) => l.path === '/mashup')) return links;
+  const item = NAV_LINKS.find((l) => l.path === '/mashup');
+  const at = links.findIndex((l) => l.path.startsWith('/products'));
+  const out = [...links];
+  out.splice(at >= 0 ? at + 1 : Math.min(1, out.length), 0, item);
+  return out;
+}
+
 /** Always renders on the brand colour — the bar and the mobile panel are both
  *  that colour now, so there is no second variant to keep in step. */
 function Wordmark({ store, size = 34 }) {
