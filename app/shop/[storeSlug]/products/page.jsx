@@ -146,12 +146,19 @@ const ProductCard = ({ product, storeSlug, onBuy, prefill = null }) => {
   const cardRef = useRef(null);
 
   // A "Buy again" link lands here: bring the filled-in card into view.
+  // The prefill often arrives after the card first renders (products load,
+  // then the matching card is found), so open and fill it here too.
+  const prefillPhone = prefill?.phone || '';
+  const prefillName = prefill?.name || '';
+  const hasPrefill = !!prefill;
   useEffect(() => {
-    if (prefill && cardRef.current) {
-      const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
-      return () => clearTimeout(t);
-    }
-  }, [prefill]);
+    if (!hasPrefill) return;
+    setExpanded(true);
+    if (prefillPhone) setPhone(prefillPhone);
+    if (prefillName) setName(prefillName);
+    const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
+    return () => clearTimeout(t);
+  }, [hasPrefill, prefillPhone, prefillName]);
 
   // MTN: check the number by itself once it is a full 10 digits.
   useEffect(() => {
