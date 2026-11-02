@@ -27,6 +27,7 @@ import AnnouncementPopup from './components/AnnouncementPopup';
 import PromoClaimButton from './components/PromoClaimButton';
 import SiteNav, { navLinksFor, sellsMashup, withMashupLink } from './components/SiteNav';
 import VerifyNumberModal from './components/VerifyNumberModal';
+import SmsShopCard from './components/SmsShopCard';
 import { customThemeDesign, customNavLinks, customNavStyle, SITE_PREVIEW_PARAM, cleanPreviewToken } from '@/lib/customDesign';
 import { CustomDesignProvider } from '@/lib/customDesignContext';
 
@@ -335,6 +336,9 @@ export default function StoreLayoutClient({ children, initialStore, initialCusto
         ) : (
           <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">{children}</div>
         )}
+
+        {/* The shop's ShopLine number, for customers without internet. */}
+        {!isOwnerArea && !isPreview && <SmsShopCard slug={params.storeSlug} />}
       </main>
 
       <footer className="border-t border-hairline bg-paper">
