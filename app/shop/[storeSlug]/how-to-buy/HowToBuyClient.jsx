@@ -28,7 +28,7 @@ export default function HowToBuyClient({ storeSlug, storeName }) {
       </p>
       <div className="overflow-hidden rounded-2xl border border-hairline bg-black shadow-sm">
         <video
-          className="block aspect-[7/15] w-full"
+          className="block aspect-[9/16] w-full"
           src="/videos/how-to-buy.mp4"
           poster="/videos/how-to-buy.jpg"
           controls
