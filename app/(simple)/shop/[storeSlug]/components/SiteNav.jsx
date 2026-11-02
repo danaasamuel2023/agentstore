@@ -30,7 +30,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Menu, X, Moon, Sun, ArrowRight, Search, Phone,
-  House, ShoppingBag, Package, Info, Users, GraduationCap, Layers,
+  House, ShoppingBag, Package, Info, Users, GraduationCap, Layers, PlayCircle,
 } from 'lucide-react';
 import WhatsAppIcon from './WhatsAppIcon';
 
@@ -53,6 +53,7 @@ export const NAV_LINKS = [
   // the server decides it and sends the answer with the store.
   { path: '/mashup', label: 'MashUp', Icon: Layers, needs: 'mashup' },
   { path: '/orders/search', label: 'Track order', Icon: Package },
+  { path: '/how-to-buy', label: 'How to buy', Icon: PlayCircle },
   { path: '/about', label: 'About', Icon: Info },
 ];
 
