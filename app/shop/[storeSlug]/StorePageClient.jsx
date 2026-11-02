@@ -25,6 +25,7 @@ import PackageDisplay from './components/PackageDisplay';
 import SiteHero from './components/SiteHero';
 import NetworkLogo from './components/NetworkLogo';
 import { DeliveryEtaBanner } from './components/DeliveryEta';
+import BuyAgainStrip from './components/BuyAgain';
 import { useStoreDesign, sectionOrder } from '@/lib/storeDesign';
 
 const NETWORK_ORDER = ['YELLO', 'TELECEL', 'AT_PREMIUM'];
@@ -219,6 +220,8 @@ export default function StorePageClient({ storeSlug, initialStore, initialProduc
             : 'mx-auto max-w-5xl space-y-11 px-4 py-10 sm:py-12'
         }
       >
+        {/* A returning customer's last orders, one tap away (renders nothing for new visitors). */}
+        <BuyAgainStrip slug={storeSlug} />
         {sectionOrder(design).map((id) => SECTIONS[id]?.())}
       </div>
     </>

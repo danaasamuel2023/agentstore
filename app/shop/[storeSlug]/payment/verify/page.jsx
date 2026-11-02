@@ -7,6 +7,7 @@ import WhatsAppIcon from '../../components/WhatsAppIcon';
 import { DeliveryEtaInline, EtaVisible } from '../../components/DeliveryEta';
 
 import SpinWin from '../../components/SpinWin';
+import { pushRecent, takePending, readRecent, buyAgainHref } from '../../components/BuyAgain';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
 
@@ -149,6 +150,49 @@ function PaymentVerifyContent() {
     finally { setChecking(false); }
   };
 
+  // Once a payment is confirmed, remember the order for "Buy again". The order
+  // parked before payment carries the exact bundle id; without it (another
+  // device, an old link) we keep the network and size instead.
+  const [againHref, setAgainHref] = useState(null);
+  useEffect(() => {
+    if (status !== 'success' || !transaction) return;
+    const slug = params.storeSlug;
+    const txPhone = String(transaction.phoneNumber || '').replace(/\D/g, '');
+    const pending = takePending(slug);
+    let item = null;
+    if (pending && (!txPhone || pending.phoneNumber === txPhone)) item = pending;
+    else if (txPhone && transaction.product?.network && transaction.product?.capacity && transaction.product.network !== 'MTN_COMBO') {
+      item = { network: transaction.product.network, capacity: transaction.product.capacity, phoneNumber: txPhone };
+    }
+    if (item) pushRecent(slug, item);
+    const latest = item || readRecent(slug)[0];
+    setAgainHref(latest ? buyAgainHref(slug, latest) : null);
+  }, [status, transaction, params.storeSlug]);
+
+  // Order updates on WhatsApp through the shop's bot, when the shop has one.
+  const bot = store?.whatsappBot;
+  const botNumber = bot?.number ? String(bot.number).replace(/\D/g, '') : '';
+  const botLink = (ref) => {
+    if (!botNumber || !ref) return null;
+    const text = bot?.code ? `START ${bot.code} ORDER ${ref}` : `ORDER ${ref}`;
+    return `https://wa.me/${botNumber}?text=${encodeURIComponent(text)}`;
+  };
+  const WhatsAppUpdates = ({ refId }) => {
+    const href = botLink(refId);
+    if (!href) return null;
+    return (
+      <div className="rounded-lg border border-hairline px-4 py-3">
+        <a href={href} target="_blank" rel="noopener noreferrer" className="btn btn-ghost w-full">
+          <span style={{ color: '#25D366' }} className="flex">
+            <WhatsAppIcon className="h-4 w-4" />
+          </span>
+          Get updates on WhatsApp
+        </a>
+        <p className="mt-1.5 text-center text-[12px] text-ink-3">We&apos;ll message you when it&apos;s delivered.</p>
+      </div>
+    );
+  };
+
   const whatsapp = store?.contactInfo?.whatsappNumber;
   const networkName = (n) => n === 'YELLO' ? 'MTN' : n === 'AT_PREMIUM' ? 'AirtelTigo' : n;
 
@@ -241,6 +285,8 @@ function PaymentVerifyContent() {
         subtitle="We have your money. The bundle is on its way to the number you entered."
       >
         <CopyRow label="Reference" value={reference} />
+
+        <WhatsAppUpdates refId={reference} />
 
         {/* Measured, not "10-60 min". The old copy printed a guess as a fact on
             the one screen where a customer is most anxious about timing. */}
@@ -346,6 +392,8 @@ function PaymentVerifyContent() {
           </EtaVisible>
         )}
 
+        {!done && <WhatsAppUpdates refId={transaction?.transactionId || reference} />}
+
         <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
           {isMashup
             ? 'MTN sends an SMS when the pack is on the number. Keep the transaction ID.'
@@ -355,7 +403,7 @@ function PaymentVerifyContent() {
         <SupportRow
           text={`Hi, help with order ${transaction?.transactionId}`}
           primary={
-            <Link href={`/shop/${params.storeSlug}/products`} className="btn btn-brand flex-1">
+            <Link href={againHref || `/shop/${params.storeSlug}/products`} className="btn btn-brand flex-1">
               <ShoppingBag className="h-4 w-4" />
               Buy again
             </Link>
