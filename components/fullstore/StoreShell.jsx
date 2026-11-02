@@ -14,6 +14,7 @@
 import { OwnerAuthProvider } from '@/lib/fullstore/ownerAuth';
 import { TopNav } from '@/components/fullstore/TopNav';
 import { Footer } from '@/components/fullstore/Footer';
+import { SmsShopLine } from '@/components/fullstore/SmsShopLine';
 import { StoreAnnouncement, WhatsAppFloat } from '@/components/fullstore/StoreExtras';
 
 export function StoreShell({ storeSlug, storeName, ownBrand = null, design = null, whatsapp = null, announcement = null, announcementStyle = null, children }) {
@@ -23,6 +24,7 @@ export function StoreShell({ storeSlug, storeName, ownBrand = null, design = nul
         <TopNav storeSlug={storeSlug} storeName={storeName} ownBrand={ownBrand} design={design} />
         <StoreAnnouncement storeSlug={storeSlug} announcement={announcement} style={announcementStyle} />
         <main className="flex-1">{children}</main>
+        <SmsShopLine storeSlug={storeSlug} />
         <Footer storeSlug={storeSlug} ownBrand={ownBrand} />
         <WhatsAppFloat storeSlug={storeSlug} whatsapp={whatsapp} design={design} />
       </div>
