@@ -1,10 +1,34 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown } from 'lucide-react';
+import { Search, Package, Zap, Shield, AlertCircle, X, Loader2, ChevronDown, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { DeliveryEtaBanner, DeliveryEtaInline, EtaVisible } from '../components/DeliveryEta';
 import VerifyNumberModal from '../components/VerifyNumberModal';
 import { MTNLogo, TelecelLogo, ATLogo } from '../components/NetworkLogo';
+import BuyAgainStrip, { savePending } from '../components/BuyAgain';
+
+/* Automatic MTN number check (auto + warn + allow). One answer per number per
+   page visit; a failed or slow check never blocks a sale. */
+const numberCheckCache = new Map(); // phone -> 'ok' | 'refused'
+async function checkNumber(phone) {
+  if (numberCheckCache.has(phone)) return numberCheckCache.get(phone);
+  let verdict = 'unknown';
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 12000);
+    const res = await fetch('/api/proxy/verify-number/public', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+      signal: ctl.signal,
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => null);
+    if (data && !data.error && typeof data.servable !== 'undefined') verdict = data.servable ? 'ok' : 'refused';
+  } catch { verdict = 'unknown'; }
+  if (verdict !== 'unknown') numberCheckCache.set(phone, verdict);
+  return verdict;
+}
 
 const API_BASE = 'https://api.datamartgh.shop/api/v1';
 
@@ -111,12 +135,38 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, product, phoneNumber, isProc
 };
 
 // Product Card
-const ProductCard = ({ product, storeSlug, onBuy }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
+const ProductCard = ({ product, storeSlug, onBuy, prefill = null }) => {
+  const [expanded, setExpanded] = useState(!!prefill);
+  const [phone, setPhone] = useState(prefill?.phone || '');
+  const [name, setName] = useState(prefill?.name || '');
   const [error, setError] = useState('');
   const [showVerify, setShowVerify] = useState(false);
+  const [check, setCheck] = useState('idle'); // idle | checking | ok | refused
+  const [accepted, setAccepted] = useState(false);
+  const cardRef = useRef(null);
+
+  // A "Buy again" link lands here: bring the filled-in card into view.
+  useEffect(() => {
+    if (prefill && cardRef.current) {
+      const t = setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
+      return () => clearTimeout(t);
+    }
+  }, [prefill]);
+
+  // MTN: check the number by itself once it is a full 10 digits.
+  useEffect(() => {
+    if (product.network !== 'YELLO') return;
+    const clean = phone.replace(/[\s-]/g, '');
+    setAccepted(false);
+    if (!/^0\d{9}$/.test(clean)) { setCheck('idle'); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      setCheck('checking');
+      const v = await checkNumber(clean);
+      if (alive) setCheck(v === 'unknown' ? 'idle' : v);
+    }, 600);
+    return () => { alive = false; clearTimeout(t); };
+  }, [phone, product.network]);
   
   const getStyle = (network) => {
     if (network === 'YELLO') return { 
@@ -182,7 +232,7 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
   const handleBuy = () => {
     setError('');
     if (!product.inStock) {
-      setError('This bundle is out of stock');
+      setError('This bundle is restocking. Please check back soon.');
       return;
     }
     if (!name.trim()) {
@@ -193,15 +243,19 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
       setError(`Enter a valid ${style.name} number`);
       return;
     }
+    if (check === 'refused' && !accepted) {
+      setError('This number may not receive the bundle. Tick the box below to continue anyway.');
+      return;
+    }
     onBuy(product, phone, name);
   };
   
   return (
-    <div className="relative">
-      {/* Out of Stock Badge */}
+    <div className="relative" ref={cardRef} id={`p-${product._id}`}>
+      {/* Restocking badge (owner 2026-10-21: say Restocking, never out of stock) */}
       {!product.inStock && (
         <div className="absolute top-3 right-3 z-10">
-          <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">OUT OF STOCK</span>
+          <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full">RESTOCKING</span>
         </div>
       )}
       
@@ -253,7 +307,7 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
           {!product.inStock ? (
             <div className="text-center py-4">
               <X className="w-10 h-10 mx-auto mb-2 opacity-50" />
-              <p className="font-semibold">Out of Stock</p>
+              <p className="font-semibold">Restocking</p>
               <p className={`text-sm ${style.subtext}`}>Check back later</p>
             </div>
           ) : (
@@ -286,11 +340,35 @@ const ProductCard = ({ product, storeSlug, onBuy }) => {
                   className={`w-full px-4 py-3 rounded-xl text-sm font-medium text-black ${style.input} focus:ring-2 focus:outline-none`}
                 />
                 <p className={`text-xs ${style.subtext} mt-1.5`}>Data will be sent to this number</p>
+                {product.network === 'YELLO' && check === 'checking' && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-black/70">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking the number…
+                  </p>
+                )}
+                {product.network === 'YELLO' && check === 'ok' && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-green-900">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Number can receive
+                  </p>
+                )}
               </div>
-              
+
+              {product.network === 'YELLO' && check === 'refused' && (
+                <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                  <p className="flex items-start gap-2 text-[13px] font-medium leading-snug">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+                    This number may not receive this bundle (not registered or not active). If you pay, the order may wait and need a refund.
+                  </p>
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-[13px] font-semibold">
+                    <input type="checkbox" checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(''); }} className="h-4 w-4 accent-amber-600" />
+                    I understand, continue anyway
+                  </label>
+                </div>
+              )}
+
               <button
                 onClick={handleBuy}
-                className={`w-full py-3 ${style.btn} font-semibold rounded-xl transition`}
+                disabled={product.network === 'YELLO' && check === 'refused' && !accepted}
+                className={`w-full py-3 ${style.btn} font-semibold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 Buy {product.capacity}GB for ₵{price.toFixed(2)}
               </button>
@@ -330,6 +408,13 @@ function ProductsContent() {
      reaching theirs. A ?network= link still wins, so the home page's network
      shortcuts land where they say they will. */
   const [network, setNetwork] = useState(searchParams.get('network') || 'YELLO');
+  // "Buy again" links: ?buy=<productId> (or ?net=&gb=) &to=<phone> &name=<name>
+  const buyParam = searchParams.get('buy');
+  const netParam = searchParams.get('net');
+  const gbParam = searchParams.get('gb');
+  const toParam = (searchParams.get('to') || '').replace(/\D/g, '').slice(0, 10);
+  const nameParam = (searchParams.get('name') || '').slice(0, 60);
+  const [prefillId, setPrefillId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
   const [paymentMethodModal, setPaymentMethodModal] = useState({ show: false, product: null, phone: '', name: '', reference: '', transactionId: '', authorizationUrl: '' });
@@ -347,6 +432,15 @@ function ProductsContent() {
   useEffect(() => {
     filterProducts();
   }, [products, network]);
+
+  // Find the bundle a "Buy again" link asks for and switch to its network.
+  useEffect(() => {
+    if (!products.length || prefillId || !(buyParam || (netParam && gbParam))) return;
+    const hit = buyParam
+      ? products.find((p) => p._id === buyParam)
+      : products.find((p) => p.network === netParam && String(p.capacity) === String(gbParam));
+    if (hit) { setNetwork(hit.network); setPrefillId(hit._id); }
+  }, [products, buyParam, netParam, gbParam, prefillId]);
 
   /* Not every shop stocks MTN. Once the catalogue lands, if the selected
      network is not one this shop actually sells, fall to the first it does —
@@ -396,6 +490,12 @@ function ProductsContent() {
     setIsProcessing(true);
     try {
       const cleanPhone = phone.replace(/[\s-]/g, '');
+      // Remembered for "Buy again"; the verify page keeps it once payment is confirmed.
+      savePending(params.storeSlug, {
+        productId: product._id, capacity: product.capacity, network: product.network,
+        phoneNumber: cleanPhone, customerName: name,
+        price: product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice,
+      });
       const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -795,6 +895,8 @@ function ProductsContent() {
         <p className="mt-1 text-[14px] text-ink-3">Pick a size and pay by mobile money.</p>
       </div>
 
+      <BuyAgainStrip slug={params.storeSlug} />
+
       {/* Live delivery ETA — same buckets as mtnup2u + /orders on DataMart */}
       <DeliveryEtaBanner />
 
@@ -857,6 +959,7 @@ function ProductsContent() {
             product={product} 
             storeSlug={params.storeSlug}
             onBuy={handleBuy}
+            prefill={product._id === prefillId ? { phone: toParam, name: nameParam } : null}
           />
         ))}
       </div>
