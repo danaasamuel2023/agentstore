@@ -832,6 +832,22 @@ function JoinPageContent() {
             </div>
           </div>
 
+          {/* Short video: how selling with this shop works */}
+          <div className="card rounded-lg p-4 border border-hairline mb-8 flex flex-col sm:flex-row gap-4 sm:items-center">
+            <video
+              className="w-full sm:w-44 aspect-[9/16] rounded-lg bg-black flex-none"
+              src="/videos/start-selling.mp4"
+              poster="/videos/start-selling.jpg"
+              controls
+              playsInline
+              preload="none"
+            />
+            <div>
+              <h3 className="font-semibold text-ink mb-1">Watch: how to start selling</h3>
+              <p className="text-sm text-ink-3">A short video: join, get your own shop link, set your prices, share it, and withdraw your profit to MoMo.</p>
+            </div>
+          </div>
+
           {/* Benefits */}
           <div className="grid md:grid-cols-3 gap-4 mb-8">
             <div className="card rounded-lg p-6 border border-hairline">
