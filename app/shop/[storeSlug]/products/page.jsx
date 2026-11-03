@@ -606,8 +606,7 @@ function ProductsContent() {
           return;
         }
         if (chargeData.action === 'completed') {
-          setPaymentStatus('completed');
-          setStatusMessage('Payment successful! Your order is being processed.');
+          goToReceipt(chargeData.reference);
           return;
         }
       }
@@ -667,8 +666,7 @@ function ProductsContent() {
 
       if (data.status === 'success') {
         if (data.action === 'completed') {
-          setPaymentStatus('completed');
-          setStatusMessage('Payment successful! Your order is being processed.');
+          goToReceipt(otpModal.reference);
         } else if (data.action === 'pending') {
           setPaymentStatus('pending');
           setStatusMessage(data.message || 'Please approve the payment on your phone');
@@ -685,6 +683,12 @@ function ProductsContent() {
     }
   };
 
+  // Paid with MoMo: show the same receipt page as after the payment page
+  // (order details, delivery status, Buy again, invite a friend).
+  const goToReceipt = (ref) => {
+    window.location.href = `/shop/${params.storeSlug}/payment/verify?reference=${encodeURIComponent(ref)}`;
+  };
+
   const pollPaymentStatus = (reference) => {
     let attempts = 0;
     const maxAttempts = 30; // 30 * 5s = 2.5 minutes
@@ -699,8 +703,7 @@ function ProductsContent() {
         const data = await res.json();
         if (data.data?.paymentStatus === 'success') {
           clearInterval(interval);
-          setPaymentStatus('completed');
-          setStatusMessage('Payment successful! Your order is being processed.');
+          goToReceipt(reference);
         } else if (data.data?.paymentStatus === 'failed') {
           clearInterval(interval);
           setPaymentStatus(null);
@@ -709,8 +712,7 @@ function ProductsContent() {
       } catch {}
       if (attempts >= maxAttempts) {
         clearInterval(interval);
-        setPaymentStatus(null);
-        showToast('Payment verification timed out. Check your order status.', 'error');
+        goToReceipt(reference); // the receipt page keeps checking
       }
     }, 5000);
   };
