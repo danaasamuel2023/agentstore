@@ -7,6 +7,7 @@ import WhatsAppIcon from '../../components/WhatsAppIcon';
 import { DeliveryEtaInline, EtaVisible } from '../../components/DeliveryEta';
 
 import SpinWin from '../../components/SpinWin';
+import InviteFriendBox from '../../components/InviteFriend';
 import { pushRecent, takePending, readRecent, buyAgainHref } from '../../components/BuyAgain';
 
 const API_BASE = 'https://api.datamartgh.shop/api';
@@ -288,6 +289,8 @@ function PaymentVerifyContent() {
 
         <WhatsAppUpdates refId={reference} />
 
+        <InviteFriendBox slug={params.storeSlug} transactionId={reference} />
+
         {/* Measured, not "10-60 min". The old copy printed a guess as a fact on
             the one screen where a customer is most anxious about timing. */}
         <EtaVisible>
@@ -393,6 +396,8 @@ function PaymentVerifyContent() {
         )}
 
         {!done && <WhatsAppUpdates refId={transaction?.transactionId || reference} />}
+
+        <InviteFriendBox slug={params.storeSlug} transactionId={transaction?.transactionId || reference} />
 
         <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
           {isMashup
