@@ -426,6 +426,14 @@ function ProductsContent() {
   const [confirmModal, setConfirmModal] = useState({ show: false, product: null, phone: '', name: '' });
   const [paymentMethodModal, setPaymentMethodModal] = useState({ show: false, product: null, phone: '', name: '', reference: '', transactionId: '', authorizationUrl: '' });
   const [momoPayPhone, setMomoPayPhone] = useState('');
+  // Admin switch: Buy opens 'Pay with MoMo' first (ON) or goes straight to Paystack (OFF).
+  const [directPay, setDirectPay] = useState(false);
+  useEffect(() => {
+    fetch(`${API_BASE}/agent-stores/pay-options`)
+      .then((r) => r.json())
+      .then((j) => setDirectPay(j?.data?.directMomo === true))
+      .catch(() => {});
+  }, []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [otpModal, setOtpModal] = useState({ show: false, reference: '', message: '' });
   const [otp, setOtp] = useState('');
@@ -503,6 +511,11 @@ function ProductsContent() {
         phoneNumber: cleanPhone, customerName: name,
         price: product.isOnSale && product.salePrice ? product.salePrice : product.sellingPrice,
       });
+      if (directPay) {
+        setMomoPayPhone(cleanPhone);
+        setPaymentMethodModal({ show: true, product, phone: cleanPhone, name, reference: '', transactionId: '', authorizationUrl: '' });
+        return;
+      }
       const res = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -768,12 +781,12 @@ function ProductsContent() {
                   </div>
                   <div>
                     <p className="font-bold text-ink text-sm">Pay with MoMo</p>
-                    <p className="text-[10px] text-ink-3">Charge your MoMo directly — no redirect</p>
+                    <p className="text-[10px] text-ink-3">A prompt comes to this phone — approve it to pay</p>
                   </div>
                 </div>
                 <input
                   type="tel"
-                  placeholder="Enter MoMo number (e.g. 0241234567)"
+                  placeholder="MoMo number to pay from (e.g. 0241234567)"
                   value={momoPayPhone}
                   onChange={(e) => setMomoPayPhone(e.target.value.replace(/[^\d\s\-]/g, ''))}
                   className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-paper text-ink text-sm font-medium placeholder:text-ink-4 focus:outline-none focus:border-amber-500 mb-3"
@@ -785,6 +798,9 @@ function ProductsContent() {
                 >
                   {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin" /> Charging...</> : 'Pay Now'}
                 </button>
+                <p className="text-[11px] text-ink-3 mt-2 leading-snug">
+                  First time paying with this number? You may get an SMS code (OTP). Type it on the next screen, then approve the MoMo prompt with your PIN.
+                </p>
               </div>
 
               <div className="flex items-center gap-3">
@@ -805,7 +821,7 @@ function ProductsContent() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-ink text-sm">Paystack Checkout</p>
+                  <p className="font-bold text-ink text-sm">Card or other ways</p>
                   <p className="text-[10px] text-ink-3">Card, Bank, USSD, QR, MoMo & more</p>
                 </div>
               </button>
@@ -831,12 +847,15 @@ function ProductsContent() {
               </div>
               <h3 className="text-lg font-bold text-ink">Enter OTP</h3>
               <p className="text-sm text-ink-3 mt-1">{otpModal.message || 'Enter the code sent to your phone'}</p>
+              <p className="text-xs text-ink-4 mt-1">Check your SMS for the code. After you verify, approve the MoMo prompt with your PIN.</p>
             </div>
             <input
               type="text"
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
               placeholder="Enter OTP code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={6}
               autoFocus
               className="w-full px-4 py-3.5 rounded-xl border-2 border-hairline text-center text-2xl font-bold tracking-[0.3em] focus:border-blue-500 focus:outline-none mb-4"
