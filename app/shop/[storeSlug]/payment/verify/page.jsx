@@ -201,8 +201,9 @@ function PaymentVerifyContent() {
   /* Shared pieces                                                          */
   /* ---------------------------------------------------------------------- */
 
-  const Shell = ({ tone, Icon, spin, title, subtitle, children }) => (
+  const Shell = ({ tone, Icon, spin, title, subtitle, children, top = null }) => (
     <div className="mx-auto w-full max-w-md py-8">
+      {top ? <div className="mb-4">{top}</div> : null}
       <div className="card overflow-hidden">
         <div className="flex items-start gap-3.5 border-b border-hairline p-5">
           <span
@@ -284,12 +285,12 @@ function PaymentVerifyContent() {
         spin
         title="Payment received"
         subtitle="We have your money. The bundle is on its way to the number you entered."
+        top={<InviteFriendBox slug={params.storeSlug} transactionId={reference} />}
       >
         <CopyRow label="Reference" value={reference} />
 
         <WhatsAppUpdates refId={reference} />
 
-        <InviteFriendBox slug={params.storeSlug} transactionId={reference} />
 
         {/* Measured, not "10-60 min". The old copy printed a guess as a fact on
             the one screen where a customer is most anxious about timing. */}
@@ -339,20 +340,22 @@ function PaymentVerifyContent() {
     // would tell a customer their pack had arrived up to an hour before it
     // did, which is the one thing a receipt must never do. So there, trust
     // only the order's own delivery status.
-    const done = isMashup
-      ? transaction?.delivery?.status === 'completed'
-      : transaction?.orderStatus === 'completed';
+    // orderStatus 'completed' only means PAID. Say delivered only when the
+    // data order itself says so — bundles as well as MashUp.
+    const deliveryStatus = String(transaction?.delivery?.status || transaction?.dataPurchase?.status || '').toLowerCase();
+    const done = ['completed', 'delivered'].includes(deliveryStatus);
 
     return (
       <Shell
         tone="ok"
         Icon={CheckCircle}
         title="Payment successful"
+        top={<InviteFriendBox slug={params.storeSlug} transactionId={transaction?.transactionId || reference} />}
         subtitle={done
           ? 'Delivered. Check the phone.'
           : isMashup
             ? 'Paid. Your pack is being loaded — it usually arrives instantly.'
-            : 'Your order is confirmed and queued.'}
+            : 'Paid. Your data is being sent. The network sends an SMS when it lands.'}
       >
         <CopyRow label="Transaction ID" value={transaction?.transactionId} />
 
@@ -397,7 +400,6 @@ function PaymentVerifyContent() {
 
         {!done && <WhatsAppUpdates refId={transaction?.transactionId || reference} />}
 
-        <InviteFriendBox slug={params.storeSlug} transactionId={transaction?.transactionId || reference} />
 
         <p className="text-center text-[12.5px] leading-relaxed text-ink-3">
           {isMashup
