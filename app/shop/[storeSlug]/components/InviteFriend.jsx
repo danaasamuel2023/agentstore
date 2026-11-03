@@ -108,3 +108,87 @@ export default function InviteFriendBox({ slug, transactionId }) {
     </div>
   );
 }
+
+/**
+ * Shop home page banner: "Invite a friend, get GH₵1 off". Tap → type the MoMo
+ * number you pay with → your invite link. Hidden while the programme is off.
+ */
+export function InviteBanner({ slug }) {
+  const [cfg, setCfg] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [momo, setMomo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [info, setInfo] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/referral/config`).then((r) => r.json()).then((j) => setCfg(j?.data || null)).catch(() => {});
+  }, []);
+  if (!cfg || !cfg.enabled) return null;
+  const amount = `GH₵${Number(cfg.amount).toFixed(cfg.amount % 1 ? 2 : 0)}`;
+
+  const getLink = async () => {
+    const m = momo.replace(/\D/g, '');
+    if (m.length !== 10) { setErr('Enter your 10-digit MoMo number'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await fetch(`${API}/stores/${slug}/referral/link-by-number`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ momo: m }),
+      });
+      const j = await r.json();
+      if (j.status === 'success') setInfo(j.data); else setErr(j.message || 'Could not make your link. Try again.');
+    } catch { setErr('Could not make your link. Try again.'); }
+    setBusy(false);
+  };
+
+  const link = info ? `${window.location.origin}/shop/${slug}?r=${info.code}` : '';
+  const msg = `I buy my bundles here, fast and cheap. Try it: ${link}`;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-3 text-left">
+        <div>
+          <p className="font-bold text-ink text-[15px]">🎁 Invite a friend, get {amount} off</p>
+          <p className="text-[12px] text-ink-3 mt-0.5">Share your link. When a friend buys for the first time, your next order is {amount} cheaper.</p>
+        </div>
+        <span className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-black">{open ? 'Close' : 'Get my link'}</span>
+      </button>
+
+      {open && !info && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="tel" inputMode="numeric" maxLength={10} value={momo}
+            onChange={(e) => setMomo(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            placeholder="MoMo number you pay with"
+            className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-paper text-ink text-sm font-medium"
+          />
+          <p className="text-[11px] text-ink-3">Your discount is used when you pay with this MoMo number.</p>
+          {err && <p className="text-[12px] text-red-600">{err}</p>}
+          <button type="button" onClick={getLink} disabled={busy} className="w-full py-2.5 rounded-xl bg-amber-500 text-black text-sm font-bold disabled:opacity-50">
+            {busy ? 'Please wait…' : 'Get my invite link'}
+          </button>
+        </div>
+      )}
+
+      {open && info && (
+        <div className="mt-3 space-y-2">
+          <p className="text-[12px] text-ink-3 break-all rounded-lg bg-paper px-3 py-2 border border-amber-200">{link}</p>
+          <div className="flex gap-2">
+            <a href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white text-sm font-bold">
+              <WhatsAppIcon className="h-4 w-4" /> Share
+            </a>
+            <button type="button" onClick={copy} className="flex-1 py-2.5 rounded-xl border border-amber-300 bg-paper text-ink text-sm font-semibold">
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+          </div>
+          <p className="text-[11px] text-ink-3">To use your discount, pay with Pay with MoMo from {info.payerMasked}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
