@@ -6,6 +6,7 @@ import { DeliveryEtaBanner, DeliveryEtaInline, EtaVisible } from '../components/
 import VerifyNumberModal from '../components/VerifyNumberModal';
 import { MTNLogo, TelecelLogo, ATLogo } from '../components/NetworkLogo';
 import BuyAgainStrip, { savePending } from '../components/BuyAgain';
+import InviteFriendBox, { attachInvite, rewardOffFor } from '../components/InviteFriend';
 
 /* Automatic MTN number check (auto + warn + allow). One answer per number per
    page visit; a failed or slow check never blocks a sale. */
@@ -428,6 +429,16 @@ function ProductsContent() {
   const [momoPayPhone, setMomoPayPhone] = useState('');
   // Admin switch: Buy opens 'Pay with MoMo' first (ON) or goes straight to Paystack (OFF).
   const [directPay, setDirectPay] = useState(false);
+  // Bring a friend: GH₵ off waiting for the MoMo number typed, and the paid order for the invite box.
+  const [rewardOff, setRewardOff] = useState(0);
+  const [paidTxId, setPaidTxId] = useState('');
+  useEffect(() => {
+    const m = momoPayPhone.replace(/[\s\-]/g, '');
+    if (!directPay || m.length !== 10) { setRewardOff(0); return; }
+    let alive = true;
+    rewardOffFor(params.storeSlug, m).then((off) => { if (alive) setRewardOff(off); });
+    return () => { alive = false; };
+  }, [momoPayPhone, directPay, params.storeSlug]);
   useEffect(() => {
     fetch(`${API_BASE}/agent-stores/pay-options`)
       .then((r) => r.json())
@@ -529,6 +540,7 @@ function ProductsContent() {
       });
       const data = await res.json();
       if (data.status === 'success' && data.data.authorizationUrl) {
+        await attachInvite(params.storeSlug, data.data.transactionId);
         window.location.href = data.data.authorizationUrl;
       } else {
         showToast(`${data.message || 'Payment failed'}${data.details ? ': ' + data.details : ''}`, 'error');
@@ -570,6 +582,8 @@ function ProductsContent() {
         showToast(initData.message || 'Failed to create order', 'error');
         return;
       }
+      await attachInvite(params.storeSlug, initData.data.transactionId);
+      setPaidTxId(initData.data.transactionId);
 
       // Step 2: Direct MoMo charge
       const chargeRes = await fetch(`${API_BASE}/agent-stores/stores/${params.storeSlug}/purchase/charge`, {
@@ -626,6 +640,7 @@ function ProductsContent() {
 
       const initData = await initRes.json();
       if (initData.status === 'success' && initData.data.authorizationUrl) {
+        await attachInvite(params.storeSlug, initData.data.transactionId);
         window.location.href = initData.data.authorizationUrl;
       } else {
         showToast(`${initData.message || 'Failed to initialize payment'}${initData.details ? ': ' + initData.details : ''}`, 'error');
@@ -798,6 +813,11 @@ function ProductsContent() {
                 >
                   {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin" /> Charging...</> : 'Pay Now'}
                 </button>
+                {rewardOff > 0 && (
+                  <p className="text-[12px] font-bold text-green-700 mt-2">
+                    🎁 GH₵{rewardOff.toFixed(2)} off applied: you pay GH₵{Math.max((paymentMethodModal.product?.isOnSale && paymentMethodModal.product?.salePrice ? paymentMethodModal.product.salePrice : paymentMethodModal.product?.sellingPrice || 0) - rewardOff, 0).toFixed(2)}
+                  </p>
+                )}
                 <p className="text-[11px] text-ink-3 mt-2 leading-snug">
                   First time paying with this number? You may get an SMS code (OTP). Type it on the next screen, then approve the MoMo prompt with your PIN.
                 </p>
@@ -903,6 +923,7 @@ function ProductsContent() {
                 </div>
                 <h3 className="text-lg font-bold text-ink mb-2">Payment Successful!</h3>
                 <p className="text-sm text-ink-3 mb-4">{statusMessage}</p>
+                {paidTxId && <div className="mb-4"><InviteFriendBox slug={params.storeSlug} transactionId={paidTxId} /></div>}
                 <button
                   onClick={() => setPaymentStatus(null)}
                   className="w-full py-3 bg-green-600 text-white font-bold rounded-xl"

@@ -19,6 +19,7 @@ import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Users, ExternalLink, Phone, Store, LogIn } from 'lucide-react';
 import WhatsAppIcon from './components/WhatsAppIcon';
+import { captureInvite } from './components/InviteFriend';
 import { getCachedDesign, setCachedDesign, extractDesignSettings } from '@/lib/designCache';
 import { resolveDesign, designVars, designAttrs, fontHref, StoreDesignProvider } from '@/lib/storeDesign';
 import { sanitizeDesign } from '@/lib/designSpec';
@@ -59,6 +60,9 @@ function FooterMark({ store, size = 34 }) {
 export default function StoreLayoutClient({ children, initialStore, initialCustomDesign = null }) {
   const params = useParams();
   const pathname = usePathname();
+
+  // Bring a friend: remember the invite code when a friend opens ?r=CODE.
+  useEffect(() => { if (params?.storeSlug) captureInvite(params.storeSlug); }, [params?.storeSlug]);
 
   const [store, setStore] = useState(initialStore || null);
   const [loading, setLoading] = useState(!initialStore);
