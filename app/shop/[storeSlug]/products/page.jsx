@@ -6,7 +6,7 @@ import { DeliveryEtaBanner, DeliveryEtaInline, EtaVisible } from '../components/
 import VerifyNumberModal from '../components/VerifyNumberModal';
 import { MTNLogo, TelecelLogo, ATLogo } from '../components/NetworkLogo';
 import BuyAgainStrip, { savePending } from '../components/BuyAgain';
-import InviteFriendBox, { attachInvite, rewardOffFor } from '../components/InviteFriend';
+import InviteFriendBox, { attachInvite, rewardOffFor, InviteNudge } from '../components/InviteFriend';
 
 /* Automatic MTN number check (auto + warn + allow). One answer per number per
    page visit; a failed or slow check never blocks a sale. */
@@ -820,6 +820,7 @@ function ProductsContent() {
                     🎁 GH₵{rewardOff.toFixed(2)} off applied: you pay GH₵{Math.max((paymentMethodModal.product?.isOnSale && paymentMethodModal.product?.salePrice ? paymentMethodModal.product.salePrice : paymentMethodModal.product?.sellingPrice || 0) - rewardOff, 0).toFixed(2)}
                   </p>
                 )}
+                {rewardOff === 0 && momoPayPhone.replace(/[\s\-]/g, '').length === 10 && <InviteNudge />}
                 <p className="text-[11px] text-ink-3 mt-2 leading-snug">
                   First time paying with this number? You may get an SMS code (OTP). Type it on the next screen, then approve the MoMo prompt with your PIN.
                 </p>

@@ -195,3 +195,28 @@ export function InviteBanner({ slug }) {
     </div>
   );
 }
+
+/**
+ * Buy pop-up, under the MoMo number (2026-11-05): tells the payer they can earn
+ * money off by sharing their link after paying. Honest wording: one reward per
+ * friend, one reward per order. Hidden while the programme is off.
+ */
+export function InviteNudge() {
+  const [amount, setAmount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API}/referral/config`)
+      .then((r) => r.json())
+      .then((j) => { if (alive && j?.data?.enabled) setAmount(Number(j.data.amount) || 0); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!(amount > 0)) return null;
+  const amt = `GH₵${amount.toFixed(amount % 1 ? 2 : 0)}`;
+  return (
+    <p className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-2 text-[11px] leading-snug text-slate-800">
+      🎁 <b>Want {amt} off?</b> After you pay, share your link with family and friends.
+      Every friend who buys gives you {amt} off an order. More friends, more money off!
+    </p>
+  );
+}
