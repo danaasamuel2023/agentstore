@@ -105,6 +105,9 @@ export default function InviteFriendBox({ slug, transactionId }) {
           {copied ? 'Copied' : 'Copy link'}
         </button>
       </div>
+      <a href={`/shop/${slug}/invite-a-friend`} className="mt-2.5 block text-center text-[12px] font-semibold text-slate-800 underline">
+        ▶ See how it works (1-min video)
+      </a>
     </div>
   );
 }
